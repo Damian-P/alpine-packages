@@ -12,17 +12,22 @@ docker run --rm -it --tty \
         >/etc/sudoers.d/packager
         # then open an sh as packager user
         sudo -u packager sh -c '
+            #abuild-keygen -a -i
             abuild-keygen -n --append --install
             # build all packages
             cd /home/packager
             repos="main"
             for repo in \$repos; do
                 cd /home/packager/\$repo
-                mkdir -p /home/packager/packages/\$repo
-                # Remove the index file
-                rm -f /home/packager/packages/\$repo/APKINDEX.tar.gz
+                rm /home/packager/packages/\$repo/\$(uname -m)/*
                 pkgs=\$(ls)
                 for pkg in \$pkgs; do
+                    case \$pkg in
+                        # incus-next) continue ;;
+                        # incus-feature) continue ;;
+                        # incus-ui) continue ;;
+                        *) ;;
+                    esac
                     cd /home/packager/\$repo/\$pkg
                     abuild checksum
                     REPODEST=/home/packager/packages abuild -r

@@ -2,3 +2,5 @@ tmp/
 .abuild/
 .cache/
 .config/
+src/
+pkg/

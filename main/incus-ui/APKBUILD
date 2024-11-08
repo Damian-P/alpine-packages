@@ -1,0 +1,53 @@
+# Contributor: Will Sinatra <wpsinatra@gmail.com>
+# Contributor: Carlo Landmeter <clandmeter@gmail.com>
+# Contributor: Francesco Colista <fcolista@alpinelinux.org>
+# Maintainer: Leonardo Arena <rnalrd@alpinelinux.org>
+pkgname=incus-ui
+pkgver=0.12
+pkgrel=0
+pkgdesc="This package contains a web interface based on canonical/lxd-ui."
+url="https://github.com/lxc/incus"
+arch="aarch64 x86_64"
+license="Apache-2.0"
+depends="
+	"
+makedepends="nodejs-current
+            npm
+			yarn
+			"
+
+options="net"
+
+# ui-canonical-0001-Branding.patch
+
+source="$pkgname-$pkgver.tar.gz::https://github.com/Damian-P/lxd-ui/archive/refs/tags/$pkgver-incus.tar.gz
+	"
+builddir="$srcdir/lxd-ui-$pkgver-incus"
+
+_project="github.com/lxc/incus"
+
+prepare() {
+	
+	#sed -i -f "/../ui-canonical-renames.sed" src/*/*.ts* src/*/*/*.ts* src/*/*/*/*.ts* src/*/*/*/*/*.ts*
+	default_prepare
+}
+
+build() {
+	yarn install
+	yarn build
+}
+
+package() {
+	# Copy the build files to the package directory
+	mkdir -p "$pkgdir/opt/incus/ui"
+	cp -r build/* "$pkgdir/opt/incus/ui"
+}
+
+check() {
+	echo "Running tests"
+	# yarn test
+}
+
+sha512sums="
+3517cfe68fb032359885235089dd42e77e000ab098772314e8d3ebc7fbc03e64e277f553dd4078fb77d3d6eb1383acb1dd8193d12dffc94628adcd610fa00401  incus-ui-0.12.tar.gz
+"

@@ -1,0 +1,63 @@
+From 1ffede19c9b1b62de01b25a9fc258013b8591e62 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?St=C3=A9phane=20Graber?= <stgraber@stgraber.org>
+Date: Fri, 9 Aug 2024 05:14:57 +0000
+Subject: [PATCH 19/20] Add support for LVM Cluster
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Stéphane Graber <stgraber@stgraber.org>
+License: GPL-3.0-only (without Canonical CLA)
+---
+ src/types/config.d.ts       | 1 +
+ src/util/storageOptions.tsx | 2 ++
+ src/util/storagePool.tsx    | 1 +
+ 3 files changed, 4 insertions(+)
+
+diff --git a/src/types/config.d.ts b/src/types/config.d.ts
+index 2e32208..87890f4 100644
+--- a/src/types/config.d.ts
++++ b/src/types/config.d.ts
+@@ -42,6 +42,7 @@ export interface LxdConfigOptions {
+     "storage-lvm": LxcConfigOptionCategories;
+     "storage-powerflex": LxcConfigOptionCategories;
+     "storage-zfs": LxcConfigOptionCategories;
++    "storage-lvmcluster": LxcConfigOptionCategories;
+   };
+ }
+ 
+diff --git a/src/util/storageOptions.tsx b/src/util/storageOptions.tsx
+index 29298ed..4bc4ae5 100644
+--- a/src/util/storageOptions.tsx
++++ b/src/util/storageOptions.tsx
+@@ -7,6 +7,7 @@ export const lvmDriver = "lvm";
+ export const zfsDriver = "zfs";
+ export const cephDriver = "ceph";
+ export const powerFlex = "powerflex";
++export const lvmClusterDriver = "lvmcluster";
+ 
+ const storageDriverLabels: { [key: string]: string } = {
+   [dirDriver]: "Directory",
+@@ -15,6 +16,7 @@ const storageDriverLabels: { [key: string]: string } = {
+   [zfsDriver]: "ZFS",
+   [cephDriver]: "Ceph",
+   [powerFlex]: "Dell PowerFlex",
++  [lvmClusterDriver]: "LVM Cluster",
+ };
+ 
+ export const getStorageDriverOptions = (
+diff --git a/src/util/storagePool.tsx b/src/util/storagePool.tsx
+index 5bb491e..eae0643 100644
+--- a/src/util/storagePool.tsx
++++ b/src/util/storagePool.tsx
+@@ -47,6 +47,7 @@ const storagePoolDriverToOptionKey: Record<string, LxdConfigOptionsKeys> = {
+   zfs: "storage-zfs",
+   ceph: "storage-ceph",
+   powerflex: "storage-powerflex",
++  lvmcluster: "storage-lvmcluster",
+ };
+ 
+ export const storagePoolFormDriverToOptionKey = (
+-- 
+2.34.1
+

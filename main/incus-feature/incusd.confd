@@ -27,3 +27,5 @@ INCUSD_OPTIONS=" --group incus"
 
 # Immediately stop all instances (dirty exit, possible data loss/corruption!)
 #INCUSD_FORCE_STOP=no
+
+INCUS_UI=/opt/incus/ui/
