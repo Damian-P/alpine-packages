@@ -2,4 +2,3 @@ tmp/
 .abuild/
 .cache/
 .config/
-packages/

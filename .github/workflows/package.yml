@@ -34,11 +34,4 @@ jobs:
         run: |
           echo Add other actions to build,
           echo test, and deploy your project.
-      - name: Alpine Package Releaser
-        uses: ivanvc/abuild-releaser-action@main
-        with:
-          author: Damian Piechowicz <1333962+Damian-P@users.noreply.github.com>
-          rsa_public_key: ${{ secrets.RSA_PUBLIC_KEY }}
-          rsa_private_key: ${{ secrets.RSA_PRIVATE_KEY }}
-          alpine_branch: 'latest-stable'
             

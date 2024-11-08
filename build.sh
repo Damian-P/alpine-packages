@@ -1,8 +1,9 @@
 #!/bin/sh
+ALPINE=3.20
 docker run --rm -it --tty \
     --volume "$(pwd)/main:/home/packager/main" \
     --volume "$(pwd)/packages:/home/packager/packages" \
-    alpine:3.20 sh -c "
+    alpine:$ALPINE sh -c "
         set -eux
         apk add sudo build-base alpine-sdk
         adduser -D packager
@@ -18,6 +19,8 @@ docker run --rm -it --tty \
             for repo in \$repos; do
                 cd /home/packager/\$repo
                 mkdir -p /home/packager/packages/\$repo
+                # Remove the index file
+                rm -f /home/packager/packages/\$repo/APKINDEX.tar.gz
                 pkgs=\$(ls)
                 for pkg in \$pkgs; do
                     cd /home/packager/\$repo/\$pkg
