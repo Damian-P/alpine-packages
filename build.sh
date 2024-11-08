@@ -1,7 +1,7 @@
 #!/bin/sh
 docker run --rm -it --tty \
-    --volume "$(pwd)/main:/home/packager/main:ro" \
-    --volume "$(pwd)/packages:/home/packager/packages:rw" \
+    --volume "$(pwd)/main:/home/packager/main" \
+    --volume "$(pwd)/packages:/home/packager/packages" \
     alpine:3.20 sh -c "
         set -eux
         apk add sudo build-base alpine-sdk
