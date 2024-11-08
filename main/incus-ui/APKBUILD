@@ -39,8 +39,8 @@ build() {
 
 package() {
 	# Copy the build files to the package directory
-	mkdir -p "$pkgdir/opt/incus/ui"
-	cp -r build/* "$pkgdir/opt/incus/ui"
+	mkdir -p "$pkgdir/usr/incus/ui"
+	cp -r build/* "$pkgdir/usr/incus/ui"
 }
 
 check() {
