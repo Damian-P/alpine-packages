@@ -20,10 +20,8 @@ docker run --rm -it --tty \
                 for pkg in \$pkgs; do
                     cd /home/packager/\$repo/\$pkg
                     abuild checksum
-                    abuild -r
+                    REPODEST=/home/packager/packages abuild -r
                 done
-                # Create the repository index
-                abuild index
             done
         '
     "
