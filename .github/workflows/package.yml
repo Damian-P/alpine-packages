@@ -40,5 +40,5 @@ jobs:
           author: Damian Piechowicz <1333962+Damian-P@users.noreply.github.com>
           rsa_public_key: ${{ secrets.RSA_PUBLIC_KEY }}
           rsa_private_key: ${{ secrets.RSA_PRIVATE_KEY }}
-          alpine_branch: 'v3.20'
+          alpine_branch: 'latest-stable'
             
