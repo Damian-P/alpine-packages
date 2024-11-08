@@ -1,7 +1,7 @@
 #!/bin/sh
 docker run --rm -it --tty \
-    --volume "$(pwd)/main:/home/packager/main" \
-    --volume "$(pwd)/packages:/home/packager/packages" \
+    --volume "$(pwd)/main:/home/packager/main:ro" \
+    --volume "$(pwd)/packages:/home/packager/packages:rw" \
     alpine:3.20 sh -c "
         set -eux
         apk add sudo build-base alpine-sdk
@@ -17,6 +17,7 @@ docker run --rm -it --tty \
             repos="main"
             for repo in \$repos; do
                 cd /home/packager/\$repo
+                mkdir -p /home/packager/packages/\$repo
                 pkgs=\$(ls)
                 for pkg in \$pkgs; do
                     cd /home/packager/\$repo/\$pkg
