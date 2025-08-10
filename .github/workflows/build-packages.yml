@@ -81,7 +81,9 @@ jobs:
                 # Generate signing keys
                 abuild-keygen -n --append --install
                 
-                cd /home/packager/main
+                # Copy sources to writable directory
+                cp -r /home/packager/main /home/packager/build-src
+                cd /home/packager/build-src
                 
                 # Build each package
                 for pkg in */; do
@@ -92,12 +94,12 @@ jobs:
                   esac
                   
                   echo \"Building package: \$pkg for Alpine edge (${{ matrix.arch }})\"
-                  cd /home/packager/main/\$pkg
+                  cd /home/packager/build-src/\$pkg
                   
                   abuild checksum || true
                   REPODEST=/home/packager/packages abuild -r
                   
-                  cd /home/packager/main
+                  cd /home/packager/build-src
                 done
                 
                 # Generate repository index
