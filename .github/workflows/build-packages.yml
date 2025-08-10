@@ -14,6 +14,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: alpine-repo
 
 jobs:
   build:
@@ -149,6 +150,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Create repository structure
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}
         run: |
           # Create repository structure for both architectures
           mkdir -p repo/vedge/main/{x86_64,aarch64}
@@ -439,7 +444,7 @@ jobs:
                   <div class="usage-section">
                       <div class="usage-title">🐳 Utilisation Docker</div>
                       <pre><code># Lancer le serveur de repository (multi-architecture)
-          docker run -p 8080:80 ghcr.io/${{ github.repository }}/alpine-repo:latest
+          docker run -p 8080:80 $REPO_URL:latest
           
           # Ajouter à Alpine Linux :
           echo "http://localhost:8080/vedge/main" >> /etc/apk/repositories
@@ -449,16 +454,16 @@ jobs:
                   <div class="usage-section">
                       <div class="usage-title">📦 Installation directe</div>
                       <pre><code># Script d'installation automatique
-          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install-repo.sh | sh -s -- -v edge
+          curl -fsSL https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/main/install-repo.sh | sh -s -- -v edge
           
           # Puis installer les packages
           apk add incus-feature incus-ui</code></pre>
                   </div>
                   
                   <div class="footer">
-                      <p><strong>Container Image:</strong> <code>ghcr.io/${{ github.repository }}/alpine-repo:latest</code></p>
+                      <p><strong>Container Image:</strong> <code>$REPO_URL:latest</code></p>
                       <p><small>Généré automatiquement par GitHub Actions • 
-                      <a href="https://github.com/${{ github.repository }}" style="color: #667eea;">Code source</a></small></p>
+                      <a href="https://github.com/$REPO_OWNER/$REPO_NAME" style="color: #667eea;">Code source</a></small></p>
                   </div>
               </div>
           </body>
@@ -506,8 +511,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:latest
-            ${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:edge
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}:edge
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -527,6 +532,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}
         run: |
           # Create or update release
           RELEASE_TAG="v$(date +%Y%m%d)-edge"
@@ -563,11 +571,11 @@ jobs:
 
           ## 🐳 **Container Multi-Architecture**
           \`\`\`bash
-          docker run -p 8080:80 ghcr.io/${{ github.repository }}/alpine-repo:latest
+          docker run -p 8080:80 $REPO_URL:latest
           \`\`\`
 
           ## 🌐 **GitHub Pages**
-          Repository APK accessible sur: https://${{ github.repository_owner }}.github.io/alpine-packages/
+          Repository APK accessible sur: https://$REPO_OWNER.github.io/$REPO_NAME/
 
           ## 📦 **Packages Disponibles**
 
@@ -579,7 +587,7 @@ jobs:
 
           ## 🚀 **Installation Rapide**
           \`\`\`bash
-          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install-repo.sh | sh -s -- -v edge
+          curl -fsSL https://raw.githubusercontent.com/$REPO_OWNER/$REPO_NAME/main/install-repo.sh | sh -s -- -v edge
           \`\`\`" \
             --prerelease
           
@@ -598,11 +606,15 @@ jobs:
       
       - name: Summary
         if: always()
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}
         run: |
           echo "## 🏔️ Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Alpine Version:** edge" >> $GITHUB_STEP_SUMMARY
-          echo "- **Multi-Architecture Container:** \`${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **GitHub Pages:** https://${{ github.repository_owner }}.github.io/alpine-packages/" >> $GITHUB_STEP_SUMMARY
+          echo "- **Multi-Architecture Container:** \`$REPO_URL:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Pages:** https://$REPO_OWNER.github.io/$REPO_NAME/" >> $GITHUB_STEP_SUMMARY
           
           total_packages=0
           for arch in x86_64 aarch64; do
