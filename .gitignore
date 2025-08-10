@@ -1,6 +1,34 @@
+# Artefacts de construction Alpine
 tmp/
 .abuild/
 .cache/
 .config/
 src/
 pkg/
+
+# Packages construits - IGNORER COMPLÈTEMENT
+packages/
+*.apk
+*.tar.gz
+APKINDEX*
+
+# Fichiers temporaires de build
+*.tmp
+*.log
+build.log
+*.part
+
+# Editeurs
+.vscode/
+.idea/
+*.swp
+*~
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+Dockerfile
+repo/

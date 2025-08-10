@@ -1,0 +1,210 @@
+name: Build Alpine APK Packages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'main/**'
+      - '.github/workflows/build-packages.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'main/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    strategy:
+      matrix:
+        alpine_version: ["3.20", "3.22", "edge"]
+        arch: [x86_64, aarch64]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build packages
+        run: |
+          # Determine Docker platform
+          case "${{ matrix.arch }}" in
+            "x86_64") DOCKER_PLATFORM="linux/amd64" ;;
+            "aarch64") DOCKER_PLATFORM="linux/arm64" ;;
+          esac
+          
+          mkdir -p packages/main/${{ matrix.arch }}
+          
+          docker run --rm \
+            --platform=$DOCKER_PLATFORM \
+            --volume "$(pwd)/main:/home/packager/main" \
+            --volume "$(pwd)/packages:/home/packager/packages" \
+            alpine:${{ matrix.alpine_version }} sh -c "
+              set -eux
+              
+              # Install dependencies
+              apk add --no-cache sudo build-base alpine-sdk git
+              
+              # Setup packager user
+              adduser -D packager
+              addgroup packager abuild
+              echo 'packager ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/packager
+              
+              sudo -u packager sh -c '
+                # Generate signing keys
+                abuild-keygen -n --append --install
+                
+                cd /home/packager/main
+                
+                # Build each package
+                for pkg in */; do
+                  pkg=\${pkg%/}
+                  case \$pkg in
+                    incus-next) continue ;;
+                    *) ;;
+                  esac
+                  
+                  echo \"Building package: \$pkg for Alpine ${{ matrix.alpine_version }}\"
+                  cd /home/packager/main/\$pkg
+                  
+                  abuild checksum || true
+                  REPODEST=/home/packager/packages abuild -r
+                  
+                  cd /home/packager/main
+                done
+                
+                # Generate repository index
+                cd /home/packager/packages/main/${{ matrix.arch }}
+                if ls *.apk >/dev/null 2>&1; then
+                  apk index -o APKINDEX.tar.gz *.apk
+                  abuild-sign -k /home/packager/.abuild/*.rsa.priv APKINDEX.tar.gz
+                fi
+              '
+            "
+      
+      - name: Create repository container
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Create repository structure
+          mkdir -p repo/v${{ matrix.alpine_version }}/main/${{ matrix.arch }}
+          cp packages/main/${{ matrix.arch }}/* repo/v${{ matrix.alpine_version }}/main/${{ matrix.arch }}/ 2>/dev/null || true
+          
+          # Create index page
+          cat > repo/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Alpine ${{ matrix.alpine_version }} - ${{ matrix.arch }}</title>
+              <meta charset="utf-8">
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 2em; }
+                  .package { margin: 0.5em 0; }
+                  a { text-decoration: none; color: #0066cc; }
+                  a:hover { text-decoration: underline; }
+              </style>
+          </head>
+          <body>
+            <h1>Alpine Linux Packages</h1>
+            <h2>Alpine ${{ matrix.alpine_version }} - ${{ matrix.arch }}</h2>
+            <p><strong>Repository:</strong> ${{ github.repository }}</p>
+            <p><strong>Version:</strong> Alpine ${{ matrix.alpine_version }}</p>
+            <p><strong>Architecture:</strong> ${{ matrix.arch }}</p>
+            <p><strong>Container:</strong> <code>ghcr.io/${{ github.repository }}/alpine-repo:${{ matrix.alpine_version }}-${{ matrix.arch }}</code></p>
+            
+            <h3>Available Packages:</h3>
+            <ul>
+          EOF
+          
+          # List packages
+          for apk in repo/v${{ matrix.alpine_version }}/main/${{ matrix.arch }}/*.apk; do
+            if [ -f "$apk" ]; then
+              filename=$(basename "$apk")
+              size=$(ls -lh "$apk" | awk '{print $5}')
+              echo "              <li class=\"package\"><a href=\"v${{ matrix.alpine_version }}/main/${{ matrix.arch }}/$filename\">$filename</a> ($size)</li>" >> repo/index.html
+            fi
+          done
+          
+          # Add repository configuration info
+          cat >> repo/index.html << 'EOF'
+            </ul>
+            
+            <h3>Usage:</h3>
+            <pre>
+          # Add to Alpine Linux:
+          echo "https://ghcr.io/v2/${{ github.repository }}/alpine-repo/v${{ matrix.alpine_version }}/main" >> /etc/apk/repositories
+          apk update
+            </pre>
+          </body>
+          </html>
+          EOF
+          
+          # Create Dockerfile
+          cat > Dockerfile << 'EOF'
+          FROM nginx:alpine
+          COPY repo/ /usr/share/nginx/html/
+          RUN chmod -R 755 /usr/share/nginx/html
+          EXPOSE 80
+          CMD ["nginx", "-g", "daemon off;"]
+          EOF
+          
+          # Build and push repository image
+          docker build -t ${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:${{ matrix.alpine_version }}-${{ matrix.arch }} .
+          docker push ${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:${{ matrix.alpine_version }}-${{ matrix.arch }}
+          
+          # Also tag as latest for the default version
+          if [ "${{ matrix.alpine_version }}" = "3.22" ] && [ "${{ matrix.arch }}" = "x86_64" ]; then
+            docker tag ${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:${{ matrix.alpine_version }}-${{ matrix.arch }} \
+                       ${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:latest
+            docker push ${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:latest
+          fi
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.alpine_version }}-${{ matrix.arch }}
+          path: packages/main/${{ matrix.arch }}/
+          retention-days: 30
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📦 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Alpine Version:** ${{ matrix.alpine_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Architecture:** ${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Container Image:** \`${{ env.REGISTRY }}/${{ github.repository }}/alpine-repo:${{ matrix.alpine_version }}-${{ matrix.arch }}\`" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d "packages/main/${{ matrix.arch }}" ]; then
+            package_count=$(ls packages/main/${{ matrix.arch }}/*.apk 2>/dev/null | wc -l || echo "0")
+            echo "- **Packages Built:** $package_count" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$package_count" -gt "0" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 📋 Package List:" >> $GITHUB_STEP_SUMMARY
+              for pkg in packages/main/${{ matrix.arch }}/*.apk; do
+                if [ -f "$pkg" ]; then
+                  echo "- \`$(basename "$pkg")\`" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+            fi
+          fi
