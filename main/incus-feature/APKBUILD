@@ -3,7 +3,7 @@
 # Contributor: Francesco Colista <fcolista@alpinelinux.org>
 # Maintainer: Leonardo Arena <rnalrd@alpinelinux.org>
 pkgname=incus-feature
-pkgver=6.6.0
+pkgver=6.15.0
 pkgrel=0
 pkgdesc="Powerful system container and virtual machine manager - Feature branch"
 url="https://github.com/lxc/incus"

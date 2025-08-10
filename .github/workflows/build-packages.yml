@@ -88,10 +88,6 @@ jobs:
                 # Build each package
                 for pkg in */; do
                   pkg=\${pkg%/}
-                  case \$pkg in
-                    incus-next) continue ;;
-                    *) ;;
-                  esac
                   
                   echo \"Building package: \$pkg for Alpine edge (${{ matrix.arch }})\"
                   cd /home/packager/build-src/\$pkg
