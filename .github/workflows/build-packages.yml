@@ -85,17 +85,25 @@ jobs:
                 cp -r /home/packager/main /home/packager/build-src
                 cd /home/packager/build-src
                 
-                # Build each package
+                # Build each package (only test package for now)
                 for pkg in */; do
                   pkg=\${pkg%/}
                   
-                  echo \"Building package: \$pkg for Alpine edge (${{ matrix.arch }})\"
-                  cd /home/packager/build-src/\$pkg
-                  
-                  abuild checksum || true
-                  REPODEST=/home/packager/packages abuild -r
-                  
-                  cd /home/packager/build-src
+                  # Only build the test package for now
+                  case \$pkg in
+                    hello-test)
+                      echo \"Building test package: \$pkg for Alpine edge (${{ matrix.arch }})\"
+                      cd /home/packager/build-src/\$pkg
+                      
+                      abuild checksum || true
+                      REPODEST=/home/packager/packages abuild -r
+                      
+                      cd /home/packager/build-src
+                      ;;
+                    *)
+                      echo \"Skipping \$pkg (only building test package)\"
+                      ;;
+                  esac
                 done
                 
                 # Generate repository index

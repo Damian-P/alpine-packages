@@ -1,0 +1,33 @@
+# Contributor: Test <test@example.com>
+# Maintainer: Test <test@example.com>
+pkgname=hello-test
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Simple test package for Alpine Linux"
+url="https://github.com/Damian-P/alpine-packages"
+arch="noarch"
+license="MIT"
+depends=""
+makedepends=""
+subpackages=""
+source=""
+builddir="$srcdir/$pkgname-$pkgver"
+
+build() {
+	return 0
+}
+
+check() {
+	return 0
+}
+
+package() {
+	mkdir -p "$pkgdir"/usr/bin
+	cat > "$pkgdir"/usr/bin/hello-test << 'EOF'
+#!/bin/sh
+echo "Hello from Alpine Test Package!"
+echo "Version: $pkgver"
+echo "Architecture: $(uname -m)"
+EOF
+	chmod +x "$pkgdir"/usr/bin/hello-test
+}
