@@ -149,11 +149,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Set lowercase repository name
+        id: lowercase-repo
+        run: echo "repo_lowercase=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+      
       - name: Create repository structure
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ steps.lowercase-repo.outputs.repo_lowercase }}/${{ env.IMAGE_NAME }}
         run: |
           # Create repository structure for both architectures
           mkdir -p repo/vedge/main/{x86_64,aarch64}
@@ -511,8 +515,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:edge
+            ${{ env.REGISTRY }}/${{ steps.lowercase-repo.outputs.repo_lowercase }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ steps.lowercase-repo.outputs.repo_lowercase }}/${{ env.IMAGE_NAME }}:edge
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -534,7 +538,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ steps.lowercase-repo.outputs.repo_lowercase }}/${{ env.IMAGE_NAME }}
         run: |
           # Create or update release
           RELEASE_TAG="v$(date +%Y%m%d)-edge"
@@ -609,7 +613,7 @@ jobs:
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ steps.lowercase-repo.outputs.repo_lowercase }}/${{ env.IMAGE_NAME }}
         run: |
           echo "## 🏔️ Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Alpine Version:** edge" >> $GITHUB_STEP_SUMMARY
