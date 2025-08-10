@@ -153,7 +153,7 @@ jobs:
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
         run: |
           # Create repository structure for both architectures
           mkdir -p repo/vedge/main/{x86_64,aarch64}
@@ -511,8 +511,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}:edge
+            ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}:edge
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -534,7 +534,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
         run: |
           # Create or update release
           RELEASE_TAG="v$(date +%Y%m%d)-edge"
@@ -609,7 +609,7 @@ jobs:
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
-          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ env.IMAGE_NAME }}
+          REPO_URL: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
         run: |
           echo "## 🏔️ Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Alpine Version:** edge" >> $GITHUB_STEP_SUMMARY
