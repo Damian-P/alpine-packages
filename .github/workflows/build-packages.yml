@@ -17,7 +17,7 @@ permissions:
 jobs:
   detect-packages:
     name: Detect modified packages
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       packages: ${{ steps.set-packages.outputs.packages }}
     steps:
@@ -41,7 +41,7 @@ jobs:
   build:
     name: Build APKs multi-arch
     needs: detect-packages
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       matrix:
         arch: [x86_64, aarch64]
@@ -167,7 +167,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

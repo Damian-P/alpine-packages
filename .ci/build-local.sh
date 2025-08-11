@@ -45,7 +45,7 @@ docker run --rm --platform "$PLATFORM" \
     printf "permit nopass :abuild\npermit nopass root as builder\npermit nopass builder\n" > /etc/doas.d/abuild.conf
 
     # Create build script
-    cat > /workspace/build-packages.sh << SCRIPT_EOF
+    cat > /tmp/build-packages.sh << SCRIPT_EOF
 #!/bin/sh
 set -ex
 cd ~
@@ -91,8 +91,8 @@ for pkg in $PKGS; do
 done
 SCRIPT_EOF
 
-    chmod +x /workspace/build-packages.sh
-    su - builder -s /bin/sh -c '/workspace/build-packages.sh'    # Export artifacts
+    chmod +x /tmp/build-packages.sh
+    su - builder -s /bin/sh -c '/tmp/build-packages.sh'    # Export artifacts
     echo "=== Searching for APKs ==="
     find /home/builder/packages -type f -name "*.apk" -ls 2>/dev/null || echo "No APKs found"
     echo "=== Copying APKs ==="
