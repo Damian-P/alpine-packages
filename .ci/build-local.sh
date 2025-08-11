@@ -34,6 +34,7 @@ docker run --rm --platform "$PLATFORM" \
   alpine:latest \
   sh -exc '
     set -e
+    apk update
     apk add --no-cache alpine-sdk doas sudo bash findutils coreutils
 
     adduser -D builder || true
