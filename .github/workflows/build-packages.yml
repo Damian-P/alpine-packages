@@ -45,62 +45,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Alpine ${{ matrix.arch }}
-        uses: jirutka/setup-alpine@v1
-        with:
-          arch: ${{ matrix.arch }}
-          packages: doas sudo build-base alpine-sdk
-
-      - name: Setup doas configuration
-        shell: alpine.sh {0}
+      - name: Build in Alpine Docker
+        shell: bash
+        env:
+          PKGS: ${{ needs.detect-packages.outputs.packages }}
         run: |
-          doas mkdir -p /etc/doas.d
-          doas cp ${{ github.workspace }}/.ci/doas-abuild.conf /etc/doas.d/abuild.conf
+          set -euo pipefail
+          echo "Packages to build: $PKGS"
+          mkdir -p output/${{ matrix.arch }} keys
 
-      # Les paquets requis sont déjà installés par setup-alpine
+          docker run --rm \
+            -e ABUILD_PRIVKEY="${{ secrets.ABUILD_PRIVKEY }}" \
+            -e PKGS="$PKGS" \
+            -v "$GITHUB_WORKSPACE":/workspace \
+            -w /workspace \
+            alpine:3.20 \
+            sh -exc '
+              apk add --no-cache alpine-sdk doas sudo bash findutils coreutils
 
-      - name: Create builder user and permissions
-        shell: alpine.sh {0}
-        run: |
-          doas adduser -D builder
-          doas addgroup builder abuild || true
-          doas adduser builder abuild || true
-          doas chown -R builder:abuild $GITHUB_WORKSPACE
+              adduser -D builder || true
+              addgroup builder abuild || true
+              adduser builder abuild || true
 
-      - name: Setup abuild keys
-        shell: alpine.sh {0}
-        run: |
-          doas -u builder mkdir -p /home/builder/.abuild
-          echo "${{ secrets.ABUILD_PRIVKEY }}" | doas -u builder tee /home/builder/.abuild/privkey.rsa > /dev/null
-          doas -u builder chmod 600 /home/builder/.abuild/privkey.rsa
-          # Configure abuild to use the provided key
-          echo "PACKAGER=CI Builder <ci@example.com>" | doas -u builder tee /home/builder/.abuild/abuild.conf > /dev/null
-          echo "PACKAGER_PRIVKEY=/home/builder/.abuild/privkey.rsa" | doas -u builder tee -a /home/builder/.abuild/abuild.conf > /dev/null
+              mkdir -p /etc/doas.d
+              cat > /etc/doas.d/abuild.conf <<EOF
+              permit nopass :abuild
+              permit nopass root as builder
+              permit nopass builder
+              EOF
 
-      - name: Generate abuild public key
-        shell: alpine.sh {0}
-        run: |
-          # Generate public key from the configured private key by re-keygen (creates .pub if missing)
-          doas -u builder sh -lc 'abuild-keygen -n -a || true'
-          mkdir -p keys
-          cp /home/builder/.abuild/*.pub keys/alpine.pub || true
+              su - builder -s /bin/sh -lc "
+                set -e
+                mkdir -p ~/.abuild
+                printf '%s' "${ABUILD_PRIVKEY}" > ~/.abuild/privkey.rsa
+                chmod 600 ~/.abuild/privkey.rsa
+                printf 'PACKAGER=CI Builder <ci@example.com>\nPACKAGER_PRIVKEY=/home/builder/.abuild/privkey.rsa\n' > ~/.abuild/abuild.conf
+                abuild-keygen -n -a || true
+                for pkg in ${PKGS}; do
+                  echo Building \$pkg
+                  cd /workspace/main/\$pkg && abuild -r
+                done
+              "
 
-      - name: Build detected packages
-        shell: alpine.sh {0}
-        run: |
-          pkgs="${{ needs.detect-packages.outputs.packages }}"
-          echo "Packages to build: $pkgs"
-          mkdir -p output/${{ matrix.arch }}
-
-          for pkg in $pkgs; do
-            echo "Building $pkg"
-            cd main/$pkg
-            # Build as non-root user
-            doas -u builder sh -lc "cd '$GITHUB_WORKSPACE/main/$pkg' && abuild -r"
-            # Copy only the APKs for the current package from builder's packages dir
-            find /home/builder/packages/main/${{ matrix.arch }}/ -name "${pkg}-*.apk" -exec cp {} $GITHUB_WORKSPACE/output/${{ matrix.arch }}/ \; 2>/dev/null || true
-            cd $GITHUB_WORKSPACE
-          done
+              # Export public key and APKs
+              cp /home/builder/.abuild/*.pub /workspace/keys/alpine.pub || true
+              find /home/builder/packages/main/${{ matrix.arch }} -type f -name '*.apk' -exec cp {} /workspace/output/${{ matrix.arch }}/ \; 2>/dev/null || true
+            '
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
