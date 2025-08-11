@@ -76,6 +76,30 @@
             border-left: 4px solid #f6ad55;
             border-radius: 4px;
         }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+            font-style: italic;
+        }
+        .error {
+            background-color: #fed7d7;
+            border-left: 4px solid #fc8181;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            color: #742a2a;
+        }
+        .package-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .package-size {
+            color: #718096;
+            font-size: 0.8rem;
+            font-family: 'SFMono-Regular', monospace;
+        }
     </style>
 </head>
 <body>
@@ -84,22 +108,8 @@
         <p>Repository de packages Alpine Linux construits automatiquement</p>
     </div>
 
-    <div class="arch-section">
-        <h2 class="arch-title">📦 x86_64 Packages</h2>
-        <ul class="package-list">
-            <li class="package-item">
-                <a href="apk-x86_64/hello-test-1.0.5-r1.apk" class="package-link">hello-test-1.0.5-r1.apk</a>
-            </li>
-        </ul>
-    </div>
-
-    <div class="arch-section">
-        <h2 class="arch-title">📦 aarch64 Packages</h2>
-        <ul class="package-list">
-            <li class="package-item">
-                <a href="apk-aarch64/hello-test-1.0.5-r1.apk" class="package-link">hello-test-1.0.5-r1.apk</a>
-            </li>
-        </ul>
+    <div id="packages-container">
+        <div class="loading">� Chargement des packages...</div>
     </div>
 
     <div class="setup-section">
@@ -135,5 +145,148 @@
     <footer style="text-align: center; margin-top: 2rem; color: #718096; font-size: 0.9rem;">
         <p>Construit automatiquement avec GitHub Actions • <a href="https://github.com/Damian-P/alpine-packages" style="color: #667eea;">Source sur GitHub</a></p>
     </footer>
+
+    <script>
+        async function discoverPackages() {
+            const container = document.getElementById('packages-container');
+
+            try {
+                // Essayer d'abord de récupérer le manifest JSON généré automatiquement
+                try {
+                    const response = await fetch('manifest.json');
+                    if (response.ok) {
+                        const manifest = await response.json();
+                        if (manifest.packages && Object.keys(manifest.packages).length > 0) {
+                            renderPackagesFromManifest(manifest.packages);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Manifest JSON non disponible, utilisation de la méthode de fallback');
+                }
+
+                // Fallback: méthode originale de découverte
+                await discoverPackagesFallback();
+                
+            } catch (error) {
+                console.error('Erreur lors de la découverte des packages:', error);
+                container.innerHTML = `
+                    <div class="error">
+                        ❌ Erreur lors du chargement des packages. Veuillez réessayer plus tard.
+                    </div>
+                `;
+            }
+        }
+
+        async function discoverPackagesFallback() {
+            const container = document.getElementById('packages-container');
+            const architectures = ['x86_64', 'aarch64'];
+            const packages = {};
+
+            for (const arch of architectures) {
+                packages[arch] = [];
+                
+                // Essayer des packages connus
+                const knownPackages = ['hello-test-1.0.5-r1.apk'];
+                for (const pkg of knownPackages) {
+                    try {
+                        const response = await fetch(`apk-${arch}/${pkg}`, { method: 'HEAD' });
+                        if (response.ok) {
+                            const size = response.headers.get('content-length');
+                            packages[arch].push({
+                                name: pkg.replace(/-[0-9].*/, ''), // nom du package
+                                version: pkg.match(/-([0-9][^-]*-r[0-9]*)/)?.[1] || 'unknown',
+                                filename: pkg,
+                                size: size ? parseInt(size) : 0,
+                                arch: arch
+                            });
+                        }
+                    } catch (e) {
+                        // Ignorer les erreurs pour les packages qui n'existent pas
+                    }
+                }
+            }
+
+            renderPackagesFromManifest(packages);
+        }
+
+        function renderPackagesFromManifest(packages) {
+            const container = document.getElementById('packages-container');
+            let html = '';
+            let totalPackages = 0;
+
+            for (const [arch, packageList] of Object.entries(packages)) {
+                if (packageList.length > 0) {
+                    totalPackages += packageList.length;
+                    const archEmoji = arch === 'x86_64' ? '🖥️' : '📱';
+                    html += `
+                        <div class="arch-section">
+                            <h2 class="arch-title">${archEmoji} ${arch} Packages (${packageList.length})</h2>
+                            <ul class="package-list">
+                    `;
+
+                    // Trier les packages par nom
+                    const sortedPackages = packageList.sort((a, b) => a.name.localeCompare(b.name));
+
+                    sortedPackages.forEach(pkg => {
+                        const sizeFormatted = pkg.size ? formatBytes(pkg.size) : 'Taille inconnue';
+                        html += `
+                            <li class="package-item">
+                                <div class="package-info">
+                                    <div>
+                                        <a href="apk-${arch}/${pkg.filename}" class="package-link">${pkg.name}</a>
+                                        <div style="font-size: 0.8rem; color: #718096; margin-top: 0.2rem;">
+                                            Version: ${pkg.version}
+                                        </div>
+                                    </div>
+                                    <span class="package-size">${sizeFormatted}</span>
+                                </div>
+                            </li>
+                        `;
+                    });
+
+                    html += `
+                            </ul>
+                        </div>
+                    `;
+                }
+            }
+
+            if (totalPackages === 0) {
+                html = `
+                    <div class="error">
+                        ℹ️ Aucun package disponible pour le moment.
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+            
+            // Mettre à jour le titre avec le nombre total de packages
+            const headerTitle = document.querySelector('.header h1');
+            if (headerTitle && totalPackages > 0) {
+                headerTitle.textContent = `🏔️ Alpine Linux Packages (${totalPackages})`;
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function renderPackages(packages) {
+            // Cette fonction est maintenant remplacée par renderPackagesFromManifest
+            renderPackagesFromManifest(packages);
+        }
+
+        // Lancer la découverte automatique au chargement de la page
+        document.addEventListener('DOMContentLoaded', discoverPackages);
+
+        // Rafraîchir toutes les 5 minutes
+        setInterval(discoverPackages, 5 * 60 * 1000);
+    </script>
 </body>
 </html>

@@ -176,6 +176,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -192,6 +195,50 @@ jobs:
           fi
           # Copier le fichier index.html
           cp index.html public/
+          
+          # Générer un manifest JSON des packages
+          echo '{"packages": {}}' > public/manifest.json
+          for arch in x86_64 aarch64; do
+            if [ -d "public/apk-${arch}" ]; then
+              echo "Generating manifest for ${arch}..."
+              packages_json="[]"
+              for apk in public/apk-${arch}/*.apk; do
+                if [ -f "$apk" ]; then
+                  filename=$(basename "$apk")
+                  size=$(stat -f%z "$apk" 2>/dev/null || stat -c%s "$apk" 2>/dev/null || echo "0")
+                  # Extraire les métadonnées du package APK (si possible)
+                  version=$(echo "$filename" | sed -n 's/.*-\([0-9][^-]*-r[0-9]*\)\.apk$/\1/p')
+                  name=$(echo "$filename" | sed 's/-[0-9].*//') 
+                  
+                  # Créer l'entrée JSON pour ce package
+                  pkg_json="{\"name\":\"$name\",\"version\":\"$version\",\"filename\":\"$filename\",\"size\":$size,\"arch\":\"$arch\"}"
+                  
+                  if [ "$packages_json" = "[]" ]; then
+                    packages_json="[$pkg_json]"
+                  else
+                    packages_json=$(echo "$packages_json" | sed "s/]$/,$pkg_json]/")
+                  fi
+                fi
+              done
+              
+              # Mettre à jour le manifest avec les packages de cette architecture
+              if [ "$packages_json" != "[]" ]; then
+                jq_script=".packages.\"$arch\" = $packages_json"
+                echo "$jq_script"
+                temp_file=$(mktemp)
+                if command -v jq >/dev/null 2>&1; then
+                  jq "$jq_script" public/manifest.json > "$temp_file" && mv "$temp_file" public/manifest.json
+                else
+                  # Fallback sans jq - approche plus simple
+                  sed -i.bak 's/{"packages": {}}/{"packages": {"'$arch'": '$packages_json'}}/g' public/manifest.json
+                  rm -f public/manifest.json.bak
+                fi
+              fi
+            fi
+          done
+          
+          echo "Generated manifest:"
+          cat public/manifest.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
