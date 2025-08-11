@@ -43,26 +43,19 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ matrix.arch }}
+          packages: alpine-sdk git doas
+          volumes: |
+            ${{ github.workspace }}/.ci/doas-abuild.conf:/etc/doas.d/abuild.conf:ro
 
-      - name: Install dependencies
-        shell: alpine.sh {0}
-        run: |
-          apk update
-          apk add alpine-sdk git doas
+      # Les paquets requis sont déjà installés par setup-alpine
 
       - name: Create builder user and permissions
         shell: alpine.sh {0}
         run: |
-          adduser -D builder
-          addgroup builder abuild || true
-          adduser builder abuild || true
-          # Configurer doas pour permettre au groupe abuild d'escalader et à root d'agir en tant que builder
-          mkdir -p /etc/doas.d
-          {
-            echo 'permit nopass :abuild as root'
-            echo 'permit nopass root as builder'
-          } > /etc/doas.d/abuild.conf
-          chown -R builder:abuild /github/workspace
+          doas adduser -D builder
+          doas addgroup builder abuild || true
+          doas adduser builder abuild || true
+          doas chown -R builder:abuild /github/workspace
 
       - name: Setup abuild keys
         shell: alpine.sh {0}
