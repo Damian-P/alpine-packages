@@ -17,13 +17,14 @@ echo "PACKAGER_PRIVKEY=$KEY" >> ~/.abuild/abuild.conf
 # Install the public key for signing
 doas cp $(ls ~/.abuild/*.pub) /etc/apk/keys/
 
-for pkg in hello-test; do
+for pkg in incus-ui; do
   echo "=== Building $pkg ==="
   cd /workspace/main/$pkg || exit 1
   echo "Current directory: $(pwd)"
   ls -la
   echo "Running abuild -r..."
   set +e  # Temporarily disable exit on error
+  abuild checksum
   abuild -r
   RESULT=0
   set -e  # Re-enable exit on error

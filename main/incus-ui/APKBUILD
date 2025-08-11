@@ -1,13 +1,9 @@
-# Contributor: Will Sinatra <wpsinatra@gmail.com>
-# Contributor: Carlo Landmeter <clandmeter@gmail.com>
-# Contributor: Francesco Colista <fcolista@alpinelinux.org>
-# Maintainer: Leonardo Arena <rnalrd@alpinelinux.org>
 pkgname=incus-ui
-pkgver=0.12
+pkgver=0.18.0
 pkgrel=0
-pkgdesc="This package contains a web interface based on canonical/lxd-ui."
+pkgdesc="This package contains a web interface based on canonical/lxd-ui for incus."
 url="https://github.com/lxc/incus"
-arch="aarch64 x86_64"
+arch="noarch"
 license="Apache-2.0"
 depends="
 	"
@@ -17,24 +13,21 @@ makedepends="nodejs-current
 			"
 
 options="net"
-
-# ui-canonical-0001-Branding.patch
-
-source="$pkgname-$pkgver.tar.gz::https://github.com/Damian-P/lxd-ui/archive/refs/tags/$pkgver-incus.tar.gz
+source="$pkgname-$pkgver.tar.gz::https://codeload.github.com/zabbly/incus-ui-canonical/tar.gz/refs/heads/main
+	renames.sed
 	"
-builddir="$srcdir/lxd-ui-$pkgver-incus"
+builddir="$srcdir/incus-ui-canonical-main"
 
-_project="github.com/lxc/incus"
+_project="github.com/zabbly/incus-ui-canonical"
 
 prepare() {
-	
-	#sed -i -f "/../ui-canonical-renames.sed" src/*/*.ts* src/*/*/*.ts* src/*/*/*/*.ts* src/*/*/*/*/*.ts*
 	default_prepare
+	sed -i -f "../../renames.sed" src/*/*.ts* src/*/*/*.ts* src/*/*/*/*.ts* src/*/*/*/*/*.ts*
+	yarn install --frozen-lockfile --ignore-scripts
 }
 
 build() {
-	yarn install
-	yarn build
+	NODE_ENV=production yarn build
 }
 
 package() {
@@ -49,5 +42,6 @@ check() {
 }
 
 sha512sums="
-3517cfe68fb032359885235089dd42e77e000ab098772314e8d3ebc7fbc03e64e277f553dd4078fb77d3d6eb1383acb1dd8193d12dffc94628adcd610fa00401  incus-ui-0.12.tar.gz
+23cb57607798f83e699c1541dfdd842ead524a973ba855f5fffe4d83b1ead60555b72f231b1f36ddefa7d6430a75ed492020905784ff02732cb1ad4fd0826e02  incus-ui-0.18.0.tar.gz
+cc882c01fdc81e4a0e13c4f0eec6ec9cf86053c688b4ce14b167b605825f9f47082977328c0a8d8c3f815a5ee98171cab070773d3ea5ae0186b0e227739ceb73  renames.sed
 "

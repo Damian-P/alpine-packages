@@ -71,6 +71,7 @@ for pkg in $PKGS; do
   ls -la
   echo "Running abuild -r..."
   set +e  # Temporarily disable exit on error
+  abuild checksum
   abuild -r
   RESULT=$?
   set -e  # Re-enable exit on error
