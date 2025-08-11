@@ -54,8 +54,8 @@ jobs:
       - name: Setup doas configuration
         shell: alpine.sh {0}
         run: |
-          mkdir -p /etc/doas.d
-          cp ${{ github.workspace }}/.ci/doas-abuild.conf /etc/doas.d/abuild.conf
+          doas mkdir -p /etc/doas.d
+          doas cp ${{ github.workspace }}/.ci/doas-abuild.conf /etc/doas.d/abuild.conf
 
       # Les paquets requis sont déjà installés par setup-alpine
 
