@@ -1,6 +1,6 @@
 pkgname=incus-ui
 pkgver=0.18.0
-pkgrel=0
+pkgrel=1
 pkgdesc="This package contains a web interface based on canonical/lxd-ui for incus."
 url="https://github.com/lxc/incus"
 arch="noarch"
