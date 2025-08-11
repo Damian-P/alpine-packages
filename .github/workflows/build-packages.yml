@@ -23,7 +23,13 @@ jobs:
       - id: set-packages
         run: |
           # Détecte les APKBUILD modifiés sous main/
-          pkgs=$(git diff --name-only origin/main...HEAD | grep '^main/.*/APKBUILD' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            # Pour les PR, compare avec la branche de base
+            pkgs=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^main/.*/APKBUILD' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          else
+            # Pour les push sur main, regarde le dernier commit
+            pkgs=$(git diff --name-only HEAD~1 HEAD | grep '^main/.*/APKBUILD' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          fi
           echo "Detected packages: $pkgs"
           echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
 
