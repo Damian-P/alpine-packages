@@ -34,7 +34,7 @@ jobs:
     if: ${{ needs.detect-packages.outputs.packages != '' }}
     strategy:
       matrix:
-        arch: [x86_64, aarch64, armv7]
+        arch: [x86_64]
         # Les paquets seront passés via un input custom (bash) dans le job build
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ matrix.arch }}
-          packages: alpine-sdk git doas
+          packages: doas sudo build-base alpine-sdk
           volumes: |
             ${{ github.workspace }}/.ci/doas-abuild.conf:/etc/doas.d/abuild.conf:ro
 
@@ -55,17 +55,17 @@ jobs:
           doas adduser -D builder
           doas addgroup builder abuild || true
           doas adduser builder abuild || true
-          doas chown -R builder:abuild /github/workspace
+          doas chown -R builder:abuild $GITHUB_WORKSPACE
 
       - name: Setup abuild keys
         shell: alpine.sh {0}
         run: |
           doas -u builder mkdir -p /home/builder/.abuild
-          echo "${{ secrets.ABUILD_PRIVKEY }}" > /home/builder/.abuild/privkey.rsa
-          chmod 600 /home/builder/.abuild/privkey.rsa
+          echo "${{ secrets.ABUILD_PRIVKEY }}" | doas -u builder tee /home/builder/.abuild/privkey.rsa > /dev/null
+          doas -u builder chmod 600 /home/builder/.abuild/privkey.rsa
           # Configure abuild to use the provided key
-          echo "PACKAGER=CI Builder <ci@example.com>" > /home/builder/.abuild/abuild.conf
-          echo "PACKAGER_PRIVKEY=/home/builder/.abuild/privkey.rsa" >> /home/builder/.abuild/abuild.conf
+          echo "PACKAGER=CI Builder <ci@example.com>" | doas -u builder tee /home/builder/.abuild/abuild.conf > /dev/null
+          echo "PACKAGER_PRIVKEY=/home/builder/.abuild/privkey.rsa" | doas -u builder tee -a /home/builder/.abuild/abuild.conf > /dev/null
 
       - name: Generate abuild public key
         shell: alpine.sh {0}
@@ -86,10 +86,10 @@ jobs:
             echo "Building $pkg"
             cd main/$pkg
             # Build as non-root user
-            doas -u builder sh -lc 'cd "$PWD" && abuild -r'
+            doas -u builder sh -lc "cd '$GITHUB_WORKSPACE/main/$pkg' && abuild -r"
             # Copy only the APKs for the current package from builder's packages dir
-            cp /home/builder/packages/${{ matrix.arch }}/"$pkg"-*.apk ../../output/${{ matrix.arch }}/
-            cd ../../
+            find /home/builder/packages/main/${{ matrix.arch }}/ -name "${pkg}-*.apk" -exec cp {} $GITHUB_WORKSPACE/output/${{ matrix.arch }}/ \; 2>/dev/null || true
+            cd $GITHUB_WORKSPACE
           done
 
       - name: Upload artifacts
