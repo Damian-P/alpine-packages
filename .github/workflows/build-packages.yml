@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           # Fallback si aucune détection: construire hello-test
-          if [ -z "${PKGS// }" ]; then PKGS="hello-test"; fi
+          if [ -z "${PKGS// }" ]; then PKGS="incus-next incus-ui"; fi
           echo "Packages to build: $PKGS"
           mkdir -p output/${{ matrix.arch }} keys
 
