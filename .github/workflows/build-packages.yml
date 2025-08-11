@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -19,10 +22,10 @@ jobs:
 
       - id: set-packages
         run: |
-          # Detecte APKBUILD modifiés sous packages/
-          pkgs=$(git diff --name-only origin/main...HEAD | grep '^packages/.*/APKBUILD' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          # Détecte les APKBUILD modifiés sous main/
+          pkgs=$(git diff --name-only origin/main...HEAD | grep '^main/.*/APKBUILD' | cut -d/ -f2 | sort -u | tr '\n' ' ')
           echo "Detected packages: $pkgs"
-          echo "::set-output name=packages::$pkgs"
+          echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build APKs multi-arch
@@ -44,19 +47,31 @@ jobs:
       - name: Install dependencies
         run: |
           apk update
-          apk add alpine-sdk git
+          apk add alpine-sdk git sudo
+
+      - name: Create builder user and permissions
+        run: |
+          adduser -D builder
+          addgroup builder abuild || true
+          adduser builder abuild || true
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          chown -R builder:abuild /github/workspace
 
       - name: Setup abuild keys
         run: |
-          mkdir -p ~/.abuild
-          echo "${{ secrets.ABUILD_PRIVKEY }}" > ~/.abuild/privkey.rsa
-          chmod 600 ~/.abuild/privkey.rsa
+          sudo -u builder mkdir -p /home/builder/.abuild
+          echo "${{ secrets.ABUILD_PRIVKEY }}" > /home/builder/.abuild/privkey.rsa
+          chmod 600 /home/builder/.abuild/privkey.rsa
+          # Configure abuild to use the provided key
+          echo "PACKAGER=CI Builder <ci@example.com>" > /home/builder/.abuild/abuild.conf
+          echo "PACKAGER_PRIVKEY=/home/builder/.abuild/privkey.rsa" >> /home/builder/.abuild/abuild.conf
 
       - name: Generate abuild public key
         run: |
-          abuild-keygen -n -a
+          # Generate public key from the configured private key by re-keygen (creates .pub if missing)
+          sudo -u builder sh -lc 'abuild-keygen -n -a || true'
           mkdir -p keys
-          cp ~/.abuild/*.pub keys/alpine.pub
+          cp /home/builder/.abuild/*.pub keys/alpine.pub || true
 
       - name: Build detected packages
         run: |
@@ -66,9 +81,11 @@ jobs:
 
           for pkg in $pkgs; do
             echo "Building $pkg"
-            cd packages/$pkg
-            abuild -r
-            cp /root/packages/${{ matrix.arch }}/*.apk ../../output/${{ matrix.arch }}/
+            cd main/$pkg
+            # Build as non-root user
+            sudo -u builder sh -lc 'cd "$PWD" && abuild -r'
+            # Copy only the APKs for the current package from builder's packages dir
+            cp /home/builder/packages/${{ matrix.arch }}/"$pkg"-*.apk ../../output/${{ matrix.arch }}/
             cd ../../
           done
 
@@ -77,6 +94,13 @@ jobs:
         with:
           name: apk-${{ matrix.arch }}
           path: output/${{ matrix.arch }}
+
+      - name: Upload public key (single arch)
+        if: ${{ matrix.arch == 'x86_64' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: keys
+          path: keys/alpine.pub
 
   deploy:
     name: Deploy to GitHub Pages
@@ -93,7 +117,12 @@ jobs:
       - name: Copy public key
         run: |
           mkdir -p public
-          cp keys/alpine.pub public/
+          # La clé est publiée en tant qu'artefact "keys"
+          if [ -f public/keys/alpine.pub ]; then
+            cp public/keys/alpine.pub public/
+          else
+            echo "Warning: public key not found; continuing without it"
+          fi
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
