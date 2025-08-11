@@ -3,7 +3,7 @@
 # Contributor: Francesco Colista <fcolista@alpinelinux.org>
 # Maintainer: Leonardo Arena <rnalrd@alpinelinux.org>
 pkgname=incus-next
-pkgver=6.7.0
+pkgver=6.16.0
 pkgrel=0
 pkgdesc="Powerful system container and virtual machine manager - Main branch"
 url="https://github.com/lxc/incus"
