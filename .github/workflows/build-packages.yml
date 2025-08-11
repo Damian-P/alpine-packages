@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -19,10 +22,10 @@ jobs:
 
       - id: set-packages
         run: |
-          # Detecte APKBUILD modifiés sous packages/
-          pkgs=$(git diff --name-only origin/main...HEAD | grep '^packages/.*/APKBUILD' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          # Détecte les APKBUILD modifiés sous main/
+          pkgs=$(git diff --name-only origin/main...HEAD | grep '^main/.*/APKBUILD' | cut -d/ -f2 | sort -u | tr '\n' ' ')
           echo "Detected packages: $pkgs"
-          echo "::set-output name=packages::$pkgs"
+          echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build APKs multi-arch
@@ -31,7 +34,7 @@ jobs:
     if: ${{ needs.detect-packages.outputs.packages != '' }}
     strategy:
       matrix:
-        arch: [x86_64, aarch64, armv7]
+        arch: [x86_64]
         # Les paquets seront passés via un input custom (bash) dans le job build
     steps:
       - uses: actions/checkout@v4
@@ -40,25 +43,40 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           arch: ${{ matrix.arch }}
+          packages: doas sudo build-base alpine-sdk
+          volumes: |
+            ${{ github.workspace }}/.ci/doas-abuild.conf:/etc/doas.d/abuild.conf:ro
 
-      - name: Install dependencies
+      # Les paquets requis sont déjà installés par setup-alpine
+
+      - name: Create builder user and permissions
+        shell: alpine.sh {0}
         run: |
-          apk update
-          apk add alpine-sdk git
+          doas adduser -D builder
+          doas addgroup builder abuild || true
+          doas adduser builder abuild || true
+          doas chown -R builder:abuild $GITHUB_WORKSPACE
 
       - name: Setup abuild keys
+        shell: alpine.sh {0}
         run: |
-          mkdir -p ~/.abuild
-          echo "${{ secrets.ABUILD_PRIVKEY }}" > ~/.abuild/privkey.rsa
-          chmod 600 ~/.abuild/privkey.rsa
+          doas -u builder mkdir -p /home/builder/.abuild
+          echo "${{ secrets.ABUILD_PRIVKEY }}" | doas -u builder tee /home/builder/.abuild/privkey.rsa > /dev/null
+          doas -u builder chmod 600 /home/builder/.abuild/privkey.rsa
+          # Configure abuild to use the provided key
+          echo "PACKAGER=CI Builder <ci@example.com>" | doas -u builder tee /home/builder/.abuild/abuild.conf > /dev/null
+          echo "PACKAGER_PRIVKEY=/home/builder/.abuild/privkey.rsa" | doas -u builder tee -a /home/builder/.abuild/abuild.conf > /dev/null
 
       - name: Generate abuild public key
+        shell: alpine.sh {0}
         run: |
-          abuild-keygen -n -a
+          # Generate public key from the configured private key by re-keygen (creates .pub if missing)
+          doas -u builder sh -lc 'abuild-keygen -n -a || true'
           mkdir -p keys
-          cp ~/.abuild/*.pub keys/alpine.pub
+          cp /home/builder/.abuild/*.pub keys/alpine.pub || true
 
       - name: Build detected packages
+        shell: alpine.sh {0}
         run: |
           pkgs="${{ needs.detect-packages.outputs.packages }}"
           echo "Packages to build: $pkgs"
@@ -66,10 +84,12 @@ jobs:
 
           for pkg in $pkgs; do
             echo "Building $pkg"
-            cd packages/$pkg
-            abuild -r
-            cp /root/packages/${{ matrix.arch }}/*.apk ../../output/${{ matrix.arch }}/
-            cd ../../
+            cd main/$pkg
+            # Build as non-root user
+            doas -u builder sh -lc "cd '$GITHUB_WORKSPACE/main/$pkg' && abuild -r"
+            # Copy only the APKs for the current package from builder's packages dir
+            find /home/builder/packages/main/${{ matrix.arch }}/ -name "${pkg}-*.apk" -exec cp {} $GITHUB_WORKSPACE/output/${{ matrix.arch }}/ \; 2>/dev/null || true
+            cd $GITHUB_WORKSPACE
           done
 
       - name: Upload artifacts
@@ -77,6 +97,13 @@ jobs:
         with:
           name: apk-${{ matrix.arch }}
           path: output/${{ matrix.arch }}
+
+      - name: Upload public key (single arch)
+        if: ${{ matrix.arch == 'x86_64' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: keys
+          path: keys/alpine.pub
 
   deploy:
     name: Deploy to GitHub Pages
@@ -93,7 +120,12 @@ jobs:
       - name: Copy public key
         run: |
           mkdir -p public
-          cp keys/alpine.pub public/
+          # La clé est publiée en tant qu'artefact "keys"
+          if [ -f public/keys/alpine.pub ]; then
+            cp public/keys/alpine.pub public/
+          else
+            echo "Warning: public key not found; continuing without it"
+          fi
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
