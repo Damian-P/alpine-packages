@@ -147,6 +147,11 @@ jobs:
               find /home/builder/packages -type f \
                 \( -path "*/${ARCH}/*" -o -path "*/noarch/*" \) \
                 -name "*.apk" -exec cp {} /workspace/output/${ARCH}/ \; 2>/dev/null || true
+              echo "=== APKs copied to /workspace/output/${ARCH}/ ==="
+              echo "=== Copy the APKINDEX.tar.gz and APKINDEX.tar.gz.sig ==="
+              cp /home/builder/packages/APKINDEX.tar.gz /workspace/output/${ARCH}/ || true
+              cp /home/builder/packages/APKINDEX.tar.gz.sig /workspace/output/${ARCH}/ || true
+
               echo "=== Final check ==="
               ls -la /workspace/output/${ARCH}/ || true
             '
@@ -154,7 +159,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: apk-${{ matrix.arch }}
+          name: ${{ matrix.arch }}
           path: output/${{ matrix.arch }}
 
       - name: Upload public key (single arch)
@@ -201,10 +206,10 @@ jobs:
           # Générer un manifest JSON des packages
           echo '{"packages": {}}' > public/manifest.json
           for arch in x86_64 aarch64; do
-            if [ -d "public/apk-${arch}" ]; then
+            if [ -d "public/${arch}" ]; then
               echo "Generating manifest for ${arch}..."
               packages_json="[]"
-              for apk in public/apk-${arch}/*.apk; do
+              for apk in public/${arch}/*.apk; do
                 if [ -f "$apk" ]; then
                   filename=$(basename "$apk")
                   size=$(stat -f%z "$apk" 2>/dev/null || stat -c%s "$apk" 2>/dev/null || echo "0")
