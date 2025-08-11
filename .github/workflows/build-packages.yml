@@ -50,8 +50,12 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
           packages: doas sudo build-base alpine-sdk
-          volumes: |
-            ${{ github.workspace }}/.ci/doas-abuild.conf:/etc/doas.d/abuild.conf:ro
+
+      - name: Setup doas configuration
+        shell: alpine.sh {0}
+        run: |
+          mkdir -p /etc/doas.d
+          cp ${{ github.workspace }}/.ci/doas-abuild.conf /etc/doas.d/abuild.conf
 
       # Les paquets requis sont déjà installés par setup-alpine
 

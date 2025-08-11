@@ -1,7 +1,7 @@
 # Contributor: Test <test@example.com>
 # Maintainer: Test <test@example.com>
 pkgname=hello-test
-pkgver=1.0.3
+pkgver=1.0.4
 pkgrel=1
 pkgdesc="Simple test package for Alpine Linux"
 url="https://github.com/Damian-P/alpine-packages"
