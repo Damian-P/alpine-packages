@@ -48,7 +48,7 @@ jobs:
         shell: alpine.sh {0}
         run: |
           apk update
-          apk add alpine-sdk git sudo
+          apk add alpine-sdk git doas
 
       - name: Create builder user and permissions
         shell: alpine.sh {0}
@@ -56,13 +56,18 @@ jobs:
           adduser -D builder
           addgroup builder abuild || true
           adduser builder abuild || true
-          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          # Configurer doas pour permettre au groupe abuild d'escalader et à root d'agir en tant que builder
+          mkdir -p /etc/doas.d
+          {
+            echo 'permit nopass :abuild as root'
+            echo 'permit nopass root as builder'
+          } > /etc/doas.d/abuild.conf
           chown -R builder:abuild /github/workspace
 
       - name: Setup abuild keys
         shell: alpine.sh {0}
         run: |
-          sudo -u builder mkdir -p /home/builder/.abuild
+          doas -u builder mkdir -p /home/builder/.abuild
           echo "${{ secrets.ABUILD_PRIVKEY }}" > /home/builder/.abuild/privkey.rsa
           chmod 600 /home/builder/.abuild/privkey.rsa
           # Configure abuild to use the provided key
@@ -73,7 +78,7 @@ jobs:
         shell: alpine.sh {0}
         run: |
           # Generate public key from the configured private key by re-keygen (creates .pub if missing)
-          sudo -u builder sh -lc 'abuild-keygen -n -a || true'
+          doas -u builder sh -lc 'abuild-keygen -n -a || true'
           mkdir -p keys
           cp /home/builder/.abuild/*.pub keys/alpine.pub || true
 
@@ -88,7 +93,7 @@ jobs:
             echo "Building $pkg"
             cd main/$pkg
             # Build as non-root user
-            sudo -u builder sh -lc 'cd "$PWD" && abuild -r'
+            doas -u builder sh -lc 'cd "$PWD" && abuild -r'
             # Copy only the APKs for the current package from builder's packages dir
             cp /home/builder/packages/${{ matrix.arch }}/"$pkg"-*.apk ../../output/${{ matrix.arch }}/
             cd ../../
