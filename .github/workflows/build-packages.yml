@@ -45,11 +45,13 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Install dependencies
+        shell: alpine.sh {0}
         run: |
           apk update
           apk add alpine-sdk git sudo
 
       - name: Create builder user and permissions
+        shell: alpine.sh {0}
         run: |
           adduser -D builder
           addgroup builder abuild || true
@@ -58,6 +60,7 @@ jobs:
           chown -R builder:abuild /github/workspace
 
       - name: Setup abuild keys
+        shell: alpine.sh {0}
         run: |
           sudo -u builder mkdir -p /home/builder/.abuild
           echo "${{ secrets.ABUILD_PRIVKEY }}" > /home/builder/.abuild/privkey.rsa
@@ -67,6 +70,7 @@ jobs:
           echo "PACKAGER_PRIVKEY=/home/builder/.abuild/privkey.rsa" >> /home/builder/.abuild/abuild.conf
 
       - name: Generate abuild public key
+        shell: alpine.sh {0}
         run: |
           # Generate public key from the configured private key by re-keygen (creates .pub if missing)
           sudo -u builder sh -lc 'abuild-keygen -n -a || true'
@@ -74,6 +78,7 @@ jobs:
           cp /home/builder/.abuild/*.pub keys/alpine.pub || true
 
       - name: Build detected packages
+        shell: alpine.sh {0}
         run: |
           pkgs="${{ needs.detect-packages.outputs.packages }}"
           echo "Packages to build: $pkgs"
