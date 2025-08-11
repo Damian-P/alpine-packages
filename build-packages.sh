@@ -17,7 +17,7 @@ echo "PACKAGER_PRIVKEY=$KEY" >> ~/.abuild/abuild.conf
 # Install the public key for signing
 doas cp $(ls ~/.abuild/*.pub) /etc/apk/keys/
 
-for pkg in incus-ui; do
+for pkg in incus-next; do
   echo "=== Building $pkg ==="
   cd /workspace/main/$pkg || exit 1
   echo "Current directory: $(pwd)"
