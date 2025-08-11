@@ -190,6 +190,8 @@ jobs:
           else
             echo "Warning: public key not found; continuing without it"
           fi
+          # Copier le fichier index.html
+          cp index.html public/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
