@@ -123,6 +123,9 @@ jobs:
               addgroup builder abuild || true
               adduser builder abuild || true
 
+              # Fix workspace permissions pour que builder puisse écrire
+              chown -R builder:builder /workspace
+
               mkdir -p /etc/doas.d
               printf "permit nopass :abuild\npermit nopass root as builder\npermit nopass builder\n" > /etc/doas.d/abuild.conf
 
