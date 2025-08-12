@@ -97,9 +97,10 @@ SCRIPT_EOF
     find /home/builder/packages -type f -name "*.apk" -ls 2>/dev/null || echo "No APKs found"
     echo "=== Copying APKs ==="
     cp /home/builder/.abuild/*.pub /workspace/keys/alpine.pub || true
-    find /home/builder/packages -type f \
-      \( -path "*/${ARCH}/*" -o -path "*/noarch/*" \) \
-      -name "*.apk" -exec cp {} /workspace/output/${ARCH}/ \; 2>/dev/null || true
+    cp -r /home/builder/packages/* /workspace/output/
+    # find /home/builder/packages -type f \
+    #   \( -path "*/${ARCH}/*" -o -path "*/noarch/*" \) \
+    #   -name "*.apk" -exec cp {} /workspace/output/${ARCH}/ \; 2>/dev/null || true
     echo "=== Final check ==="
     ls -la /workspace/output/${ARCH}/ || true
   '
