@@ -19,7 +19,7 @@ else
 fi
 
 WORKDIR=$(cd "$(dirname "$0")/.." && pwd)
-OUTDIR="$WORKDIR/output"
+OUTDIR="$WORKDIR/output/main/$ARCH"
 KEYSDIR="$WORKDIR/keys"
 mkdir -p "$OUTDIR" "$KEYSDIR"
 
@@ -30,7 +30,7 @@ docker run --rm --platform "$PLATFORM" \
   -e ABUILD_PRIVKEY \
   -e ARCH="$ARCH" \
   -e PKGS="$PKGS" \
-  -e OUTPUT_DIR="/workspace/output" \
+  -e OUTPUT_DIR="/workspace/output/main/$ARCH" \
   -v "$WORKDIR":/workspace \
   -w /workspace \
   alpine:latest \

@@ -60,15 +60,13 @@ jobs:
           PKGS: ${{ needs.detect-packages.outputs.packages }}
         run: |
           set -euo pipefail
-          echo "=== Restore previously published packages (gh-pages) ==="
+          echo "=== Restore previously published packages (gh-pages cumulative) ==="
           git fetch origin gh-pages:gh-pages || true
           if git rev-parse --verify gh-pages >/dev/null 2>&1; then
-            mkdir -p previous-packages output/${{ matrix.arch }}
-            git --work-tree=previous-packages checkout gh-pages -- . || true
-            if [ -d previous-packages/${{ matrix.arch }} ]; then
-              cp -u previous-packages/${{ matrix.arch }}/*.apk output/${{ matrix.arch }}/ 2>/dev/null || true
-              cp -u previous-packages/${{ matrix.arch }}/APKINDEX.tar.gz* output/${{ matrix.arch }}/ 2>/dev/null || true
-              echo "Copied previous packages for ${{ matrix.arch }}"
+            mkdir -p previous-packages output/main/${{ matrix.arch }}
+            git --work-tree=previous-packages checkout gh-pages -- main/${{ matrix.arch }} alpine.pub || true
+            if [ -d previous-packages/main/${{ matrix.arch }} ]; then
+              cp -u previous-packages/main/${{ matrix.arch }}/*.apk output/main/${{ matrix.arch }}/ 2>/dev/null || true
             fi
             if [ -f previous-packages/alpine.pub ]; then
               mkdir -p keys
@@ -80,7 +78,7 @@ jobs:
           # Fallback si aucune détection: construire hello-test
           if [ -z "${PKGS// }" ]; then PKGS="incus-next incus-ui"; fi
           echo "Packages to build: $PKGS"
-          mkdir -p output/${{ matrix.arch }} keys
+          mkdir -p output/main/${{ matrix.arch }} keys
 
           # Sélectionne la plateforme Docker en fonction de l'arch
           if [ "${{ matrix.arch }}" = "aarch64" ]; then PLATFORM=linux/arm64; else PLATFORM=linux/amd64; fi
@@ -89,7 +87,9 @@ jobs:
             -e ABUILD_PRIVKEY="${{ secrets.ABUILD_PRIVKEY }}" \
             -e ARCH="${{ matrix.arch }}" \
             -e PKGS="$PKGS" \
-            -e OUTPUT_DIR="/workspace/output/${{ matrix.arch }}" \
+            -e OUTPUT_DIR="/workspace/output/main/${{ matrix.arch }}" \
+            -e PRUNE_OLD=1 \
+            -e PRUNE_KEEP=1 \
             -v "$GITHUB_WORKSPACE":/workspace \
             -w /workspace \
             alpine:latest \
@@ -99,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.arch }}
-          path: output/${{ matrix.arch }}
+          path: output/main/${{ matrix.arch }}
 
       - name: Upload public key (single arch)
         if: ${{ matrix.arch == 'x86_64' }}
@@ -130,7 +130,7 @@ jobs:
         with:
           path: ./public
 
-      - name: Copy public key
+      - name: Prepare site content
         run: |
           mkdir -p public
           # La clé est publiée en tant qu'artefact "keys"
@@ -139,16 +139,29 @@ jobs:
           else
             echo "Warning: public key not found; continuing without it"
           fi
-          # Copier le fichier index.html
+          # Copier le fichier index.html (à la racine du site)
           cp index.html public/
+          # Les artefacts sont déjà sous public/<arch> (nom de l'artifact), on les place dans main/<arch>
+          mkdir -p public/main
+          for archdir in public/*; do
+            b=$(basename "$archdir")
+            case "$b" in x86_64|aarch64)
+              mkdir -p public/main/$b
+              cp -u "$archdir"/*.apk public/main/$b/ 2>/dev/null || true
+              cp -u "$archdir"/APKINDEX.tar.gz* public/main/$b/ 2>/dev/null || true
+            ;; esac
+          done
+
+          echo "Resulting tree (depth 3):"
+          find public -maxdepth 3 -type f -name '*.apk' | sed 's#public/##' | sort
           
           # Générer un manifest JSON des packages
           echo '{"packages": {}}' > public/manifest.json
           for arch in x86_64 aarch64; do
-            if [ -d "public/${arch}" ]; then
+            if [ -d "public/main/${arch}" ]; then
               echo "Generating manifest for ${arch}..."
               packages_json="[]"
-              for apk in public/${arch}/*.apk; do
+              for apk in public/main/${arch}/*.apk; do
                 if [ -f "$apk" ]; then
                   filename=$(basename "$apk")
                   size=$(stat -f%z "$apk" 2>/dev/null || stat -c%s "$apk" 2>/dev/null || echo "0")
@@ -185,6 +198,11 @@ jobs:
           
           echo "Generated manifest:"
           cat public/manifest.json
+
+          # Vérifier présence de l'index
+          for arch in x86_64 aarch64; do
+            if [ -f "public/main/${arch}/APKINDEX.tar.gz" ]; then echo "Index trouvé pour ${arch}"; fi
+          done
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
