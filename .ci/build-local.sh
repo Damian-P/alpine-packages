@@ -19,90 +19,21 @@ else
 fi
 
 WORKDIR=$(cd "$(dirname "$0")/.." && pwd)
-OUTDIR="$WORKDIR/output/$ARCH"
+OUTDIR="$WORKDIR/output"
 KEYSDIR="$WORKDIR/keys"
 mkdir -p "$OUTDIR" "$KEYSDIR"
 
 echo "Building packages ($PKGS) for $ARCH via $PLATFORM"
+echo "Reusing any existing packages in $OUTDIR (cumulative index)"
 
 docker run --rm --platform "$PLATFORM" \
   -e ABUILD_PRIVKEY \
   -e ARCH="$ARCH" \
   -e PKGS="$PKGS" \
+  -e OUTPUT_DIR="/workspace/output" \
   -v "$WORKDIR":/workspace \
   -w /workspace \
   alpine:latest \
-  sh -exc '
-    set -e
-    apk update
-    apk add --no-cache alpine-sdk doas sudo bash findutils coreutils
+  sh .ci/build-common-inside-container.sh
 
-    adduser -D builder || true
-    addgroup builder abuild || true
-    adduser builder abuild || true
-
-    mkdir -p /etc/doas.d
-    printf "permit nopass :abuild\npermit nopass root as builder\npermit nopass builder\n" > /etc/doas.d/abuild.conf
-
-    # Create build script
-    cat > /tmp/build-packages.sh << SCRIPT_EOF
-#!/bin/sh
-set -ex
-cd ~
-mkdir -p ~/.abuild
-if [ -n "\${ABUILD_PRIVKEY:-}" ]; then
-  printf "%s" "\${ABUILD_PRIVKEY}" > ~/.abuild/privkey.rsa
-  chmod 600 ~/.abuild/privkey.rsa
-  KEY=~/.abuild/privkey.rsa
-else
-  # Generate new keypair
-  abuild-keygen -n -a || true
-  KEY=\$(ls ~/.abuild/builder-*.rsa)
-fi
-echo "PACKAGER=\"Local Builder\"" > ~/.abuild/abuild.conf
-echo "PACKAGER_PRIVKEY=\$KEY" >> ~/.abuild/abuild.conf
-
-# Install the public key for signing
-doas cp \$(ls ~/.abuild/*.pub) /etc/apk/keys/
-
-for pkg in $PKGS; do
-  echo "=== Building \$pkg ==="
-  cd /workspace/main/\$pkg || exit 1
-  echo "Current directory: \$(pwd)"
-  ls -la
-  echo "Running abuild -r..."
-  set +e  # Temporarily disable exit on error
-  abuild checksum
-  abuild -r
-  RESULT=$?
-  set -e  # Re-enable exit on error
-  
-  # Check if APK was created despite potential index errors
-  if find ~/packages -name "\$pkg-*.apk" | grep -q "."; then
-    echo "Build completed for \$pkg (APK successfully created)"
-  elif [ $RESULT -eq 0 ]; then
-    echo "Build successful for \$pkg"  
-  else
-    echo "Build failed for \$pkg (exit code: $RESULT)"
-    exit 1
-  fi
-  echo "Checking for generated packages:"
-  find ~/packages -name "*.apk" -ls 2>/dev/null || echo "No APKs found for \$pkg yet"
-done
-SCRIPT_EOF
-
-    chmod +x /tmp/build-packages.sh
-    su - builder -s /bin/sh -c '/tmp/build-packages.sh'    # Export artifacts
-    echo "=== Searching for APKs ==="
-    find /home/builder/packages -type f -name "*.apk" -ls 2>/dev/null || echo "No APKs found"
-    echo "=== Copying APKs ==="
-    cp /home/builder/.abuild/*.pub /workspace/keys/alpine.pub || true
-    cp -r /home/builder/packages/* /workspace/output/
-    # find /home/builder/packages -type f \
-    #   \( -path "*/${ARCH}/*" -o -path "*/noarch/*" \) \
-    #   -name "*.apk" -exec cp {} /workspace/output/${ARCH}/ \; 2>/dev/null || true
-    echo "=== Final check ==="
-    ls -la /workspace/output/${ARCH}/ || true
-  '
-
-echo "Done. Artifacts in $OUTDIR"
+echo "Done. Cumulative artifacts in $OUTDIR"
