@@ -152,7 +152,13 @@ jobs:
             case "$b" in x86_64|aarch64)
               mkdir -p public/main/$b
               cp -u "$archdir"/*.apk public/main/$b/ 2>/dev/null || true
-              cp -u "$archdir"/APKINDEX.tar.gz* public/main/$b/ 2>/dev/null || true
+              cp -u "$archdir"/APKINDEX.tar.gz public/main/$b/ 2>/dev/null || true
+              cp -u "$archdir"/APKINDEX.tar.gz.sig public/main/$b/ 2>/dev/null || true
+              # Also create symlinks for backward compatibility if needed
+              mkdir -p public/apk-$b
+              ln -sf ../main/$b/*.apk public/apk-$b/ 2>/dev/null || true
+              ln -sf ../main/$b/APKINDEX.tar.gz public/apk-$b/ 2>/dev/null || true
+              ln -sf ../main/$b/APKINDEX.tar.gz.sig public/apk-$b/ 2>/dev/null || true
             ;; esac
           done
 
