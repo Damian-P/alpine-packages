@@ -171,13 +171,16 @@ if ls *.apk >/dev/null 2>&1; then
     fi
     echo "[verify] OK: $a"
   done
-  echo "[builder] Creating APKINDEX (abuild already signed with our key)"
+  echo "[builder] Creating and signing APKINDEX"
   if ! apk index -o APKINDEX.tar.gz *.apk; then
     echo "[builder] Regular index failed, trying with --allow-untrusted"
     apk index --allow-untrusted -o APKINDEX.tar.gz *.apk || { echo "Index creation failed" >&2; exit 1; }
   fi
-  # No need to re-sign APKINDEX - abuild already did it with our key during build
-  echo "[builder] APKINDEX created (using existing signature from abuild)"
+  # Sign the APKINDEX with our key (abuild only signs the local one in ~/packages)
+  abuild-sign -k "$KEY" APKINDEX.tar.gz || { echo "APKINDEX signing failed" >&2; exit 1; }
+  echo "[builder] APKINDEX created and signed successfully"
+  echo "[builder] Post-signature files in OUTPUT_DIR:"
+  ls -la "$OUTPUT_DIR"
 else
   echo "[builder] No APKs to index"
 fi
