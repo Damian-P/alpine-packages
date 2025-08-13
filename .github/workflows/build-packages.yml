@@ -145,6 +145,10 @@ jobs:
           fi
           # Copier le fichier index.html (à la racine du site)
           cp index.html public/
+          
+          # Générer une page index.html mise à jour avec les packages actuels
+          echo "Generating updated index.html with current packages..."
+          bash .ci/generate-index.sh public/
           # Les artefacts sont déjà sous public/<arch> (nom de l'artifact), on les place dans main/<arch>
           mkdir -p public/main
           for archdir in public/*; do
