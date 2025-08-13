@@ -1,9 +1,9 @@
 pkgname=incus-ui
 pkgver=0.18.0
-pkgrel=3
+pkgrel=4
 pkgdesc="This package contains a web interface based on canonical/lxd-ui for incus."
 url="https://github.com/lxc/incus"
-arch="noarch"
+arch="aarch64 x86_64"
 license="Apache-2.0"
 depends="
 	"
