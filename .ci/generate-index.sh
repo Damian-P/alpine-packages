@@ -209,7 +209,6 @@ apk add incus-next</pre>
             <li style="margin: 0.5rem 0;">• <strong>incus-next</strong> - Version développement d'Incus (conteneurs et VMs)</li>
             <li style="margin: 0.5rem 0;">• <strong>incus-feature</strong> - Version feature d'Incus avec fonctionnalités expérimentales</li>
             <li style="margin: 0.5rem 0;">• <strong>incus-ui</strong> - Interface web pour Incus</li>
-            <li style="margin: 0.5rem 0;">• <strong>hello-test</strong> - Package de test simple</li>
         </ul>
         
         <h3>🔑 Clé publique</h3>

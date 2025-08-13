@@ -106,6 +106,7 @@
     <div class="header">
         <h1>🏔️ Alpine Linux Packages</h1>
         <p>Repository de packages Alpine Linux construits automatiquement</p>
+        <p>✅ Repository fonctionnel • 🔐 Index signé • 🔄 Builds automatiques</p>
     </div>
 
     <div id="packages-container">
@@ -119,12 +120,12 @@
         <div class="key-info">
             <strong>1. Télécharger et installer la clé publique :</strong>
         </div>
-        <pre>wget https://damian-p.github.io/alpine-packages/alpine.pub -O /etc/apk/keys/alpine.pub</pre>
+        <pre>wget https://damian-p.github.io/alpine-packages/alpine.pub -O /etc/apk/keys/alpine.rsa.pub</pre>
 
         <div class="key-info">
             <strong>2. Ajouter le repository à votre configuration APK :</strong>
         </div>
-        <pre>echo "https://damian-p.github.io/alpine-packages/apk-$(uname -m)" >> /etc/apk/repositories</pre>
+        <pre>echo "https://damian-p.github.io/alpine-packages/main" >> /etc/apk/repositories</pre>
 
         <div class="key-info">
             <strong>3. Mettre à jour l'index des packages :</strong>
@@ -132,14 +133,28 @@
         <pre>apk update</pre>
 
         <div class="key-info">
-            <strong>4. Installer un package :</strong>
+            <strong>4. Rechercher et installer des packages :</strong>
         </div>
-        <pre>apk add hello-test</pre>
+        <pre># Rechercher des packages Incus
+apk search incus-next
+apk search incus-ui
+
+# Installer un package
+apk add incus-next</pre>
     </div>
 
     <div class="key-info">
-        <h3>🔑 Clé publique</h3>
+        <h3>� Packages disponibles</h3>
+        <ul style="list-style: none; padding: 0; margin: 1rem 0;">
+            <li style="margin: 0.5rem 0;">• <strong>incus-next</strong> - Version développement d'Incus (conteneurs et VMs)</li>
+            <li style="margin: 0.5rem 0;">• <strong>incus-feature</strong> - Version feature d'Incus avec fonctionnalités expérimentales</li>
+            <li style="margin: 0.5rem 0;">• <strong>incus-ui</strong> - Interface web pour Incus</li>
+            <li style="margin: 0.5rem 0;">• <strong>hello-test</strong> - Package de test simple</li>
+        </ul>
+        
+        <h3>�🔑 Clé publique</h3>
         <p>Clé publique de signature des packages : <a href="alpine.pub">alpine.pub</a></p>
+        <p><em>⚠️ Important : Installer la clé avec le nom <code>alpine.rsa.pub</code> pour la validation des signatures</em></p>
     </div>
 
     <footer style="text-align: center; margin-top: 2rem; color: #718096; font-size: 0.9rem;">
@@ -180,17 +195,28 @@
 
         async function discoverPackagesFallback() {
             const container = document.getElementById('packages-container');
-            const architectures = ['x86_64', 'aarch64'];
+            const architectures = ['x86_64'];  // Seul x86_64 est actuellement supporté
             const packages = {};
 
             for (const arch of architectures) {
                 packages[arch] = [];
                 
-                // Essayer des packages connus
-                const knownPackages = ['hello-test-1.0.5-r1.apk'];
+                // Packages connus disponibles dans le repository
+                const knownPackages = [
+                    'hello-test-1.0.5-r1.apk',
+                    'incus-next-6.16.0-r4.apk',
+                    'incus-next-agent-6.16.0-r4.apk',
+                    'incus-next-client-6.16.0-r4.apk',
+                    'incus-ui-0.18.0-r3.apk',
+                    'incus-feature-6.12.0-r2.apk',
+                    'incus-feature-agent-6.12.0-r2.apk',
+                    'incus-feature-client-6.12.0-r2.apk'
+                ];
+                
                 for (const pkg of knownPackages) {
                     try {
-                        const response = await fetch(`apk-${arch}/${pkg}`, { method: 'HEAD' });
+                        // Utiliser la nouvelle structure: main/x86_64/
+                        const response = await fetch(`main/${arch}/${pkg}`, { method: 'HEAD' });
                         if (response.ok) {
                             const size = response.headers.get('content-length');
                             packages[arch].push({
@@ -198,7 +224,8 @@
                                 version: pkg.match(/-([0-9][^-]*-r[0-9]*)/)?.[1] || 'unknown',
                                 filename: pkg,
                                 size: size ? parseInt(size) : 0,
-                                arch: arch
+                                arch: arch,
+                                url: `main/${arch}/${pkg}`  // URL complète pour le téléchargement
                             });
                         }
                     } catch (e) {
@@ -234,7 +261,7 @@
                             <li class="package-item">
                                 <div class="package-info">
                                     <div>
-                                        <a href="apk-${arch}/${pkg.filename}" class="package-link">${pkg.name}</a>
+                                        <a href="main/${arch}/${pkg.filename}" class="package-link">${pkg.name}</a>
                                         <div style="font-size: 0.8rem; color: #718096; margin-top: 0.2rem;">
                                             Version: ${pkg.version}
                                         </div>
