@@ -4,7 +4,7 @@
 # Maintainer: Leonardo Arena <rnalrd@alpinelinux.org>
 pkgname=incus-next
 pkgver=6.16.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Powerful system container and virtual machine manager - Main branch"
 url="https://github.com/lxc/incus"
 arch="aarch64 x86_64"

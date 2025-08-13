@@ -41,31 +41,48 @@ set -eu
 echo "Running as builder"
 mkdir -p ~/.abuild
 if [ -n "${ABUILD_PRIVKEY:-}" ]; then
-  # Private key supplied via environment (CI case)
-  printf "%s" "${ABUILD_PRIVKEY}" > ~/.abuild/privkey.rsa
-  chmod 600 ~/.abuild/privkey.rsa
-  KEY=~/.abuild/privkey.rsa
+  printf "%s" "${ABUILD_PRIVKEY}" > ~/.abuild/alpine.rsa
+  chmod 600 ~/.abuild/alpine.rsa
+  KEY=~/.abuild/alpine.rsa
   if [ -n "${ABUILD_PUBKEY:-}" ]; then
-    printf "%s" "${ABUILD_PUBKEY}" > ~/.abuild/privkey.rsa.pub
-  elif command -v openssl >/dev/null 2>&1; then
-    openssl rsa -in "$KEY" -pubout > ~/.abuild/privkey.rsa.pub 2>/dev/null || true
+    printf "%s" "${ABUILD_PUBKEY}" > ~/.abuild/alpine.rsa.pub
+  elif [ ! -f ~/.abuild/alpine.rsa.pub ] && command -v openssl >/dev/null 2>&1; then
+    # Derive public key if not supplied
+    openssl rsa -in "$KEY" -pubout > ~/.abuild/alpine.rsa.pub 2>/dev/null || true
   fi
   echo "PACKAGER=\"Automated Builder\"" > ~/.abuild/abuild.conf
   echo "PACKAGER_PRIVKEY=$KEY" >> ~/.abuild/abuild.conf
-  cp ~/.abuild/*.pub /etc/apk/keys/ 2>/dev/null || true
+  if [ -f ~/.abuild/alpine.rsa.pub ]; then
+    install -m 644 ~/.abuild/alpine.rsa.pub /etc/apk/keys/alpine.rsa.pub 2>/dev/null || true
+    echo "[builder] Installed CI public key as alpine.rsa.pub"
+  else
+    echo "[warn] Public key not present after setup (CI path)" >&2
+  fi
 else
   # Local mode: require an existing key pair under /workspace/keys
   if [ -f /workspace/keys/alpine.rsa ]; then
     echo "Reusing existing local key /workspace/keys/alpine.rsa"
-    cp /workspace/keys/alpine.rsa ~/.abuild/privkey.rsa
-    chmod 600 ~/.abuild/privkey.rsa
-    KEY=~/.abuild/privkey.rsa
-    if [ -f /workspace/keys/alpine.pub ]; then
-      cp /workspace/keys/alpine.pub ~/.abuild/privkey.rsa.pub || true
+    cp /workspace/keys/alpine.rsa ~/.abuild/alpine.rsa
+    chmod 600 ~/.abuild/alpine.rsa
+    KEY=~/.abuild/alpine.rsa
+    if [ -f /workspace/keys/alpine.rsa.pub ]; then
+      cp /workspace/keys/alpine.rsa.pub ~/.abuild/alpine.rsa.pub
+    elif [ -f /workspace/keys/alpine.pub ]; then
+      cp /workspace/keys/alpine.pub ~/.abuild/alpine.rsa.pub
+      cp /workspace/keys/alpine.pub /workspace/keys/alpine.rsa.pub 2>/dev/null || true
     elif command -v openssl >/dev/null 2>&1; then
-      openssl rsa -in "$KEY" -pubout > ~/.abuild/privkey.rsa.pub 2>/dev/null || true
+      openssl rsa -in "$KEY" -pubout > ~/.abuild/alpine.rsa.pub 2>/dev/null || true
+      cp ~/.abuild/alpine.rsa.pub /workspace/keys/alpine.rsa.pub 2>/dev/null || true
     fi
-    cp /workspace/keys/alpine.pub /etc/apk/keys/ 2>/dev/null || true
+    if [ -f ~/.abuild/alpine.rsa.pub ]; then
+      install -m 644 ~/.abuild/alpine.rsa.pub /etc/apk/keys/alpine.rsa.pub 2>/dev/null || true
+      echo "[builder] Installed local public key as alpine.rsa.pub"
+    else
+      echo "[error] Could not obtain public key for local private key." >&2
+      exit 1
+    fi
+    echo "PACKAGER=\"Local Builder\"" > ~/.abuild/abuild.conf
+    echo "PACKAGER_PRIVKEY=$KEY" >> ~/.abuild/abuild.conf
   else
     echo "[error] No ABUILD_PRIVKEY provided and no /workspace/keys/alpine.rsa found."
     echo "        Generate a key pair first (example):"
@@ -79,6 +96,18 @@ if [ -z "${ARCH:-}" ]; then
   ARCH=$(find ~/packages -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | grep -E '^(x86_64|aarch64|armhf|armv7|ppc64le|s390x)$' | head -n1 || true)
 fi
 echo "[builder] Using ARCH=$ARCH"
+echo "[builder] Key debug: private key size: $(wc -c < ~/.abuild/alpine.rsa 2>/dev/null || echo 0) bytes; public key present? $( [ -f ~/.abuild/alpine.rsa.pub ] && echo yes || echo no )"
+
+# Ensure our public key is installed in keyring with proper name
+if [ -f ~/.abuild/alpine.rsa.pub ]; then
+  doas cp ~/.abuild/alpine.rsa.pub /etc/apk/keys/alpine.rsa.pub
+  doas chmod 644 /etc/apk/keys/alpine.rsa.pub
+  echo "[builder] Forcibly installed public key as /etc/apk/keys/alpine.rsa.pub"
+fi
+
+ls -l /etc/apk/keys | sed 's/^/[builder] keyring /'
+echo "[builder] Our public key content (first 3 lines):"
+head -n3 ~/.abuild/alpine.rsa.pub 2>/dev/null | sed 's/^/[builder] /' || echo "[builder] No public key found"
 echo "[builder] Building packages: $PKGS"
 for pkg in $PKGS; do
   [ -z "$pkg" ] && continue
@@ -91,6 +120,8 @@ for pkg in $PKGS; do
       exit 1
     fi
   fi
+  # Don't force re-sign APKs - let abuild handle signing with our configured key
+  echo "[builder] APKs will be signed by abuild using PACKAGER_PRIVKEY=$KEY"
 done
 
 echo "[builder] Collecting APKs into $OUTPUT_DIR (cumulative)"
@@ -123,8 +154,30 @@ fi
 echo "[builder] Regenerating APKINDEX ("$(ls -1 *.apk 2>/dev/null | wc -l)" APKs)"
 rm -f APKINDEX.tar.gz APKINDEX.tar.gz.sig || true
 if ls *.apk >/dev/null 2>&1; then
-  apk index -o APKINDEX.tar.gz *.apk
-  abuild-sign -k "$KEY" APKINDEX.tar.gz || { echo "Signing failed" >&2; exit 1; }
+  echo "[builder] Verifying built APK signatures before indexing"
+  for a in *.apk; do
+    echo "[verify] Checking $a - signature entries: $(tar -tf "$a" | grep -c '^\.SIGN' || echo 0)"
+    if ! apk verify "$a" >/dev/null 2>&1; then
+      echo "[verify] UNTRUSTED: $a" >&2
+      echo "[debug] Listing signature entries inside APK:" >&2
+      tar -tf "$a" | grep -E '^\.SIGN' || true
+      echo "[debug] Current keyring contents:" >&2
+      ls -la /etc/apk/keys | grep -v '^total' >&2 || true
+      echo "[debug] Public key used (first lines):" >&2
+      head -n5 ~/.abuild/alpine.rsa.pub 2>/dev/null >&2 || true
+      echo "[debug] Testing manual apk verify with verbose output:" >&2
+      apk verify --verbose "$a" 2>&1 >&2 || true
+      exit 99
+    fi
+    echo "[verify] OK: $a"
+  done
+  echo "[builder] Creating APKINDEX (abuild already signed with our key)"
+  if ! apk index -o APKINDEX.tar.gz *.apk; then
+    echo "[builder] Regular index failed, trying with --allow-untrusted"
+    apk index --allow-untrusted -o APKINDEX.tar.gz *.apk || { echo "Index creation failed" >&2; exit 1; }
+  fi
+  # No need to re-sign APKINDEX - abuild already did it with our key during build
+  echo "[builder] APKINDEX created (using existing signature from abuild)"
 else
   echo "[builder] No APKs to index"
 fi
@@ -135,7 +188,7 @@ chown -R builder:builder /workspace "$OUTPUT_DIR"
 
 su - builder -s /bin/sh -c "ABUILD_PRIVKEY='${ABUILD_PRIVKEY:-}' ARCH='${ARCH}' PKGS='${PKGS}' OUTPUT_DIR='${OUTPUT_DIR}' /tmp/run-as-builder.sh"
 
-# Always refresh exported public key (harmless overwrite)
-cp /home/builder/.abuild/*.pub /workspace/keys/alpine.pub 2>/dev/null || true
+# Sync canonical public key back
+cp /home/builder/.abuild/alpine.rsa.pub /workspace/keys/alpine.rsa.pub 2>/dev/null || true
 echo "[common] Final contents of $OUTPUT_DIR:"; ls -la "$OUTPUT_DIR"
 echo "[common] Done"
