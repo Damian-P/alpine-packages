@@ -106,7 +106,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: keys
-          path: keys/alpine.rsa.pub
+          path: keys/
 
   deploy:
     name: Deploy to GitHub Pages
@@ -133,11 +133,15 @@ jobs:
       - name: Prepare site content
         run: |
           mkdir -p public
-          # La clé est publiée en tant qu'artefact "keys"
-          if [ -f public/keys/alpine.pub ]; then
+          # Publier la clé publique (alpine.rsa.pub ou alpine.pub)
+          if [ -f public/keys/alpine.rsa.pub ]; then
+            cp public/keys/alpine.rsa.pub public/alpine.pub
+            echo "Published alpine.rsa.pub as alpine.pub"
+          elif [ -f public/keys/alpine.pub ]; then
             cp public/keys/alpine.pub public/
+            echo "Published alpine.pub"
           else
-            echo "Warning: public key not found; continuing without it"
+            echo "Warning: no public key found in keys/ artifact"
           fi
           # Copier le fichier index.html (à la racine du site)
           cp index.html public/
