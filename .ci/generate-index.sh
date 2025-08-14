@@ -180,7 +180,7 @@ cat >> "$PUBLIC_DIR/index.html" << 'EOF'
         <div class="key-info">
             <strong>1. Télécharger et installer la clé publique :</strong>
         </div>
-        <pre>wget https://damian-p.github.io/alpine-packages/alpine.pub -O /etc/apk/keys/alpine.rsa.pub</pre>
+        <pre>wget https://damian-p.github.io/alpine-packages/alpine.rsa.pub -O /etc/apk/keys/alpine.rsa.pub</pre>
 
         <div class="key-info">
             <strong>2. Ajouter le repository à votre configuration APK :</strong>
@@ -200,19 +200,18 @@ apk search incus-next
 apk search incus-ui
 
 # Installer un package
-apk add incus-next</pre>
+apk add incus-next incus-next-client incus-next-vm incus-next-oci incus-ui</pre>
     </div>
 
     <div class="key-info">
         <h3>📦 Packages disponibles</h3>
         <ul style="list-style: none; padding: 0; margin: 1rem 0;">
             <li style="margin: 0.5rem 0;">• <strong>incus-next</strong> - Version développement d'Incus (conteneurs et VMs)</li>
-            <li style="margin: 0.5rem 0;">• <strong>incus-feature</strong> - Version feature d'Incus avec fonctionnalités expérimentales</li>
             <li style="margin: 0.5rem 0;">• <strong>incus-ui</strong> - Interface web pour Incus</li>
         </ul>
         
         <h3>🔑 Clé publique</h3>
-        <p>Clé publique de signature des packages : <a href="alpine.pub">alpine.pub</a></p>
+        <p>Clé publique de signature des packages : <a href="alpine.rsa.pub">alpine.rsa.pub</a></p>
         <p><em>⚠️ Important : Installer la clé avec le nom <code>alpine.rsa.pub</code> pour la validation des signatures</em></p>
     </div>
 

@@ -60,22 +60,22 @@ jobs:
           PKGS: ${{ needs.detect-packages.outputs.packages }}
         run: |
           set -euo pipefail
-          echo "=== Restore previously published packages (gh-pages cumulative) ==="
-          git fetch origin gh-pages:gh-pages || true
-          if git rev-parse --verify gh-pages >/dev/null 2>&1; then
-            mkdir -p previous-packages output/main/${{ matrix.arch }}
-            git --work-tree=previous-packages checkout gh-pages -- main/${{ matrix.arch }} alpine.pub || true
-            if [ -d previous-packages/main/${{ matrix.arch }} ]; then
-              cp -u previous-packages/main/${{ matrix.arch }}/*.apk output/main/${{ matrix.arch }}/ 2>/dev/null || true
-            fi
-            if [ -f previous-packages/alpine.pub ]; then
-              mkdir -p keys
-              cp previous-packages/alpine.pub keys/ 2>/dev/null || true
-            fi
-          else
-            echo "gh-pages branch not found (first run)"
-          fi
-          # Fallback si aucune détection: construire hello-test
+          # echo "=== Restore previously published packages (gh-pages cumulative) ==="
+          # git fetch origin gh-pages:gh-pages || true
+          # if git rev-parse --verify gh-pages >/dev/null 2>&1; then
+          #   mkdir -p previous-packages output/main/${{ matrix.arch }}
+          #   git --work-tree=previous-packages checkout gh-pages -- main/${{ matrix.arch }} alpine.pub || true
+          #   if [ -d previous-packages/main/${{ matrix.arch }} ]; then
+          #     cp -u previous-packages/main/${{ matrix.arch }}/*.apk output/main/${{ matrix.arch }}/ 2>/dev/null || true
+          #   fi
+          #   if [ -f previous-packages/alpine.pub ]; then
+          #     mkdir -p keys
+          #     cp previous-packages/alpine.pub keys/ 2>/dev/null || true
+          #   fi
+          # else
+          #   echo "gh-pages branch not found (first run)"
+          # fi
+          # # Fallback si aucune détection: construire hello-test
           if [ -z "${PKGS// }" ]; then PKGS="incus-next incus-ui"; fi
           echo "Packages to build: $PKGS"
           mkdir -p output/main/${{ matrix.arch }} keys
@@ -135,18 +135,14 @@ jobs:
           mkdir -p public
           # Publier la clé publique (alpine.rsa.pub ou alpine.pub)
           if [ -f public/keys/alpine.rsa.pub ]; then
-            cp public/keys/alpine.rsa.pub public/alpine.pub
+            cp public/keys/alpine.rsa.pub public/alpine.rsa.pub
             echo "Published alpine.rsa.pub as alpine.pub"
-          elif [ -f public/keys/alpine.pub ]; then
-            cp public/keys/alpine.pub public/
-            echo "Published alpine.pub"
           else
             echo "Warning: no public key found in keys/ artifact"
           fi
           # Copier le fichier index.html (à la racine du site)
           cp index.html public/
           
-          # Les artefacts sont déjà sous public/<arch> (nom de l'artifact), on les place dans main/<arch>
           mkdir -p public/main
           for archdir in public/*; do
             b=$(basename "$archdir")
@@ -158,11 +154,6 @@ jobs:
               cp -u "$archdir"/APKINDEX.tar.gz public/main/$b/ 2>/dev/null || true
               cp -u "$archdir"/APKINDEX.tar.gz.sig public/main/$b/ 2>/dev/null || true
               echo "Copied files for $b:"
-              ls -la "public/main/$b/" | grep -E '\.(apk|gz)$' || echo "No APK/index files found"
-              # Remove broken symlink approach - just copy files for backward compatibility
-              mkdir -p public/apk-$b
-              cp -u "$archdir"/*.apk public/apk-$b/ 2>/dev/null || true
-              cp -u "$archdir"/APKINDEX.tar.gz* public/apk-$b/ 2>/dev/null || true
             ;; esac
           done
 
