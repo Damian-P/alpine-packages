@@ -1,10 +1,6 @@
-# Contributor: Will Sinatra <wpsinatra@gmail.com>
-# Contributor: Carlo Landmeter <clandmeter@gmail.com>
-# Contributor: Francesco Colista <fcolista@alpinelinux.org>
-# Maintainer: Leonardo Arena <rnalrd@alpinelinux.org>
 pkgname=incus-next
 pkgver=6.16.0
-pkgrel=5
+pkgrel=6
 pkgdesc="Powerful system container and virtual machine manager - Main branch"
 url="https://github.com/lxc/incus"
 arch="aarch64 x86_64"
@@ -201,7 +197,7 @@ vm() {
 }
 
 openrc() {
-	provides=$pkgname-lts-openrc=$pkgver-r$pkgrel
+	provides=$pkgname-openrc=$pkgver-r$pkgrel
 	default_openrc
 }
 
