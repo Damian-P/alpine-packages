@@ -1,6 +1,6 @@
 pkgname=incus-next
 pkgver=6.16.0
-pkgrel=7
+pkgrel=8
 pkgdesc="Powerful system container and virtual machine manager - Main branch"
 url="https://github.com/lxc/incus"
 arch="aarch64 x86_64"
