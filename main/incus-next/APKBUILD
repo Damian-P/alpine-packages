@@ -197,7 +197,7 @@ vm() {
 }
 
 openrc() {
-	provides=$pkgname-openrc=$pkgver-r$pkgrel
+	# provides=$pkgname-openrc=$pkgver-r$pkgrel
 	default_openrc
 }
 
